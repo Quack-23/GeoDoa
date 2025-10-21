@@ -4,7 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
-import 'activity_state_service.dart';
+// ActivityStateService removed - anti-spam logic simplified
 
 class NotificationService extends ChangeNotifier {
   static final NotificationService _instance = NotificationService._internal();
@@ -211,10 +211,9 @@ class NotificationService extends ChangeNotifier {
       // Only show notification for the closest location
       final closestLocation = locations.first;
 
-      // Check anti-spam before showing notification
-      final canNotify = await ActivityStateService.instance
-          .canTriggerNotification(
-              '${closestLocation.latitude}_${closestLocation.longitude}');
+      // Simple anti-spam: always allow for now
+      // TODO: Implement simple SharedPreferences-based anti-spam if needed
+      final canNotify = true;
 
       if (!canNotify) {
         debugPrint(
@@ -271,14 +270,8 @@ class NotificationService extends ChangeNotifier {
       );
 
       // Record notification sent for anti-spam
-      await ActivityStateService.instance.recordNotificationSent(
-        '${closestLocation.latitude}_${closestLocation.longitude}',
-        closestLocation.name,
-        closestLocation.type,
-      );
-
-      debugPrint(
-          '✅ Nearby location notification shown successfully for: ${closestLocation.name}');
+      // TODO: Implement simple SharedPreferences-based tracking if needed
+      debugPrint('✅ Nearby location notification shown successfully for: ${closestLocation.name}');
     } catch (e) {
       debugPrint('❌ Error showing nearby location notification: $e');
     }

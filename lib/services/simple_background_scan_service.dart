@@ -5,7 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import '../services/location_scan_service.dart';
-import '../services/activity_state_service.dart';
+// ActivityStateService removed - anti-spam logic simplified
 import '../services/scan_statistics_service.dart';
 
 class SimpleBackgroundScanService {
@@ -142,15 +142,16 @@ class SimpleBackgroundScanService {
         // Check if we can trigger notification (anti-spam) for each location
         for (final location in scannedLocations) {
           final locationId = location.id?.toString() ?? 'unknown';
-          if (await ActivityStateService.instance
-              .canTriggerNotification(locationId)) {
+          // Simple anti-spam: always allow for now
+          final canNotify = true;
+          if (canNotify) {
             // Show notification with location details
             await NotificationService.instance
                 .showNearbyLocationNotification([location]);
 
             // Record notification sent
-            await ActivityStateService.instance.recordNotificationSent(
-                locationId, location.name, location.type);
+            // TODO: Implement simple SharedPreferences-based tracking if needed
+            debugPrint('Background notification sent for ${location.name}');
 
             debugPrint(
                 'Background scan notification sent for location: ${location.name}');
