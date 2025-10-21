@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import '../constants/app_constants.dart';
-import '../services/logging_service.dart';
+import 'package:flutter/foundation.dart';
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
 

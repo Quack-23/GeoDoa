@@ -4,12 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
-import '../services/logging_service.dart';
-import '../services/memory_leak_detection_service.dart';
 import '../services/state_management_service.dart';
-import '../services/state_restoration_service.dart';
 import 'database_service.dart';
-import 'web_data_service.dart';
 
 /// Refactored LocationService using StateManagementService
 class LocationService extends ChangeNotifier {

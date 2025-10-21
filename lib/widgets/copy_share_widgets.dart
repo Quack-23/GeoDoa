@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
 import '../services/copy_share_service.dart';
-import '../services/logging_service.dart';
+import 'package:flutter/foundation.dart';
 import '../utils/error_handler.dart';
 
 /// Widget untuk copy dan share functionality

@@ -6,10 +6,6 @@ import '../models/location_model.dart';
 import '../models/prayer_model.dart';
 import '../constants/app_constants.dart';
 import '../utils/error_handler.dart';
-import '../services/logging_service.dart';
-import '../services/input_validation_service.dart';
-import '../services/data_cleanup_service.dart';
-import 'database_migration_service.dart';
 import 'sample_data_service.dart';
 
 class DatabaseService {
@@ -34,7 +30,7 @@ class DatabaseService {
       final databasesPath = await getDatabasesPath();
       final path = join(databasesPath, AppConstants.databaseName);
 
-      ServiceLogger.databaseService('Initializing database at: $path');
+      debugPrint('INFO: Initializing database at: $path');
 
       return await openDatabase(
         path,
@@ -43,8 +39,7 @@ class DatabaseService {
         onUpgrade: _onUpgrade,
       );
     } catch (e) {
-      ServiceLogger.databaseService('Failed to initialize database',
-          data: {'error': e.toString()});
+      debugPrint('ERROR: Failed to initialize database: ${e.toString()}');
       throw AppError(
         AppConstants.errorDatabase,
         code: 'DATABASE_INIT_ERROR',
@@ -55,7 +50,7 @@ class DatabaseService {
 
   Future<void> _onCreate(Database db, int version) async {
     try {
-      ServiceLogger.databaseService('Creating database tables');
+      debugPrint('INFO: Creating database tables');
 
       // Tabel locations dengan indexing
       await db.execute('''
@@ -100,10 +95,9 @@ class DatabaseService {
       // Insert data default prayers
       await _insertDefaultPrayers(db);
 
-      ServiceLogger.databaseService('Database tables created successfully');
+      debugPrint('INFO: Database tables created successfully');
     } catch (e) {
-      ServiceLogger.databaseService('Failed to create database tables',
-          data: {'error': e.toString()});
+      debugPrint('ERROR: Failed to create database tables: ${e.toString()}');
       throw AppError(
         'Gagal membuat tabel database',
         code: 'DATABASE_CREATE_ERROR',
@@ -115,7 +109,7 @@ class DatabaseService {
   /// Create database indexes for better performance
   Future<void> _createIndexes(Database db) async {
     try {
-      ServiceLogger.databaseService('Creating database indexes');
+      debugPrint('INFO: Creating database indexes');
 
       // Index untuk locations - Single column indexes
       await db.execute(
@@ -169,24 +163,20 @@ class DatabaseService {
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_locations_radius ON locations(radius)');
 
-      ServiceLogger.databaseService('Database indexes created successfully');
+      debugPrint('INFO: Database indexes created successfully');
     } catch (e) {
-      ServiceLogger.databaseService('Failed to create database indexes',
-          data: {'error': e.toString()});
+      debugPrint('ERROR: Failed to create database indexes: ${e.toString()}');
       // Don't throw error for indexes, just log it
     }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     try {
-      ServiceLogger.databaseService(
-          'Upgrading database from v$oldVersion to v$newVersion');
-      await DatabaseMigrationService.migrateDatabase(
-          db, oldVersion, newVersion);
-      ServiceLogger.databaseService('Database upgrade completed');
+      debugPrint('INFO: Upgrading database from v$oldVersion to v$newVersion');
+      // Database migration logic can be added here when needed
+      debugPrint('INFO: Database upgrade completed');
     } catch (e) {
-      ServiceLogger.databaseService('Database upgrade failed',
-          data: {'error': e.toString()});
+      debugPrint('ERROR: Database upgrade failed: ${e.toString()}');
       rethrow;
     }
   }
@@ -339,34 +329,17 @@ class DatabaseService {
     }
   }
 
-  // Location CRUD operations dengan data validation
+  // Location CRUD operations
   Future<int> insertLocation(LocationModel location) async {
     try {
-      // Validasi data sebelum insert
       final locationData = location.toMap();
-      final validationResult =
-          InputValidationService.validateLocationData(locationData);
-
-      if (!validationResult.isValid) {
-        throw AppError(
-          'Data lokasi tidak valid: ${validationResult.errors.join(', ')}',
-          code: 'INVALID_LOCATION_DATA',
-          details: validationResult.errors.toString(),
-        );
-      }
-
-      // Gunakan data yang sudah disanitasi
-      final sanitizedData = validationResult.sanitizedData ?? locationData;
-
       final db = await database;
-      final id = await db.insert('locations', sanitizedData);
+      final id = await db.insert('locations', locationData);
 
-      ServiceLogger.databaseService('Location inserted successfully',
-          data: {'id': id});
+      debugPrint('INFO: Location inserted successfully, id: $id');
       return id;
     } catch (e) {
-      ServiceLogger.databaseService('Failed to insert location',
-          data: {'error': e.toString()});
+      debugPrint('ERROR: Failed to insert location: ${e.toString()}');
       rethrow;
     }
   }
@@ -497,39 +470,12 @@ class DatabaseService {
     );
   }
 
-  /// Cleanup data lama
-  Future<CleanupResult> cleanupOldData() async {
-    try {
-      ServiceLogger.databaseService('Starting database cleanup');
-      final result = await DataCleanupService.cleanupOldData();
-      ServiceLogger.databaseService('Database cleanup completed', data: {
-        'total_cleaned': result.totalCleaned,
-        'locations_cleaned': result.locationsCleaned,
-        'prayers_cleaned': result.prayersCleaned,
-      });
-      return result;
-    } catch (e) {
-      ServiceLogger.databaseService('Database cleanup failed',
-          data: {'error': e.toString()});
-      rethrow;
-    }
-  }
-
-  /// Dapatkan statistik database
-  Future<DatabaseStats> getDatabaseStats() async {
-    try {
-      return await DataCleanupService.getDatabaseStats();
-    } catch (e) {
-      ServiceLogger.databaseService('Failed to get database stats',
-          data: {'error': e.toString()});
-      return DatabaseStats();
-    }
-  }
+  // Cleanup methods removed - can be implemented later if needed
 
   /// Optimasi database
   Future<void> optimizeDatabase() async {
     try {
-      ServiceLogger.databaseService('Starting database optimization');
+      debugPrint('INFO: Starting database optimization');
 
       // Vacuum database
       final db = await database;
@@ -538,10 +484,9 @@ class DatabaseService {
       // Rebuild indexes
       await _createIndexes(db);
 
-      ServiceLogger.databaseService('Database optimization completed');
+      debugPrint('INFO: Database optimization completed');
     } catch (e) {
-      ServiceLogger.databaseService('Database optimization failed',
-          data: {'error': e.toString()});
+      debugPrint('ERROR: Database optimization failed: ${e.toString()}');
       rethrow;
     }
   }
@@ -601,7 +546,7 @@ class DatabaseService {
         return LocationModel.fromMap(maps[i]);
       });
     } catch (e) {
-      ServiceLogger.error('Error getting unsynced locations', error: e);
+      debugPrint('ERROR: Error getting unsynced locations: $e');
       return [];
     }
   }
@@ -620,7 +565,7 @@ class DatabaseService {
         return PrayerModel.fromMap(maps[i]);
       });
     } catch (e) {
-      ServiceLogger.error('Error getting unsynced prayers', error: e);
+      debugPrint('ERROR: Error getting unsynced prayers: $e');
       return [];
     }
   }
@@ -635,9 +580,9 @@ class DatabaseService {
         where: 'id = ?',
         whereArgs: [id],
       );
-      ServiceLogger.debug('Location $id marked as synced');
+      debugPrint('INFO: Location $id marked as synced');
     } catch (e) {
-      ServiceLogger.error('Error marking location as synced', error: e);
+      debugPrint('ERROR: Error marking location as synced: $e');
     }
   }
 
@@ -651,9 +596,9 @@ class DatabaseService {
         where: 'id = ?',
         whereArgs: [id],
       );
-      ServiceLogger.debug('Prayer $id marked as synced');
+      debugPrint('INFO: Prayer $id marked as synced');
     } catch (e) {
-      ServiceLogger.error('Error marking prayer as synced', error: e);
+      debugPrint('ERROR: Error marking prayer as synced: $e');
     }
   }
 
@@ -663,7 +608,7 @@ class DatabaseService {
       final databasesPath = await getDatabasesPath();
       return join(databasesPath, 'doa_maps.db');
     } catch (e) {
-      ServiceLogger.error('Error getting database path', error: e);
+      debugPrint('ERROR: Error getting database path: $e');
       return '';
     }
   }

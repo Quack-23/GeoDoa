@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import '../services/logging_service.dart';
+import 'package:flutter/foundation.dart';
 
 /// Service untuk mengelola dark mode dan kontras
 class DarkModeService {
@@ -29,7 +29,7 @@ class DarkModeService {
   /// Initialize dark mode service
   Future<void> initialize() async {
     try {
-      ServiceLogger.info('Initializing dark mode service');
+      debugPrint(info('Initializing dark mode service');
 
       // Initialize color schemes
       _initializeColorSchemes();
@@ -37,14 +37,14 @@ class DarkModeService {
       // Check system dark mode
       await _checkSystemDarkMode();
 
-      ServiceLogger.info('Dark mode service initialized', data: {
+      debugPrint(info('Dark mode service initialized', data: {
         'is_dark_mode': _isDarkMode,
         'is_system_dark_mode': _isSystemDarkMode,
         'is_high_contrast': _isHighContrast,
         'contrast_ratio': _contrastRatio,
       });
     } catch (e) {
-      ServiceLogger.error('Failed to initialize dark mode service', error: e);
+      debugPrint(error('Failed to initialize dark mode service', error: e);
     }
   }
 
@@ -139,16 +139,16 @@ class DarkModeService {
       _isSystemDarkMode = false; // Mock value
       _isDarkMode = _isSystemDarkMode;
 
-      ServiceLogger.debug('System dark mode checked');
+      debugPrint(debug('System dark mode checked');
     } catch (e) {
-      ServiceLogger.error('Error checking system dark mode', error: e);
+      debugPrint(error('Error checking system dark mode', error: e);
     }
   }
 
   /// Set dark mode
   void setDarkMode(bool isDark) {
     _isDarkMode = isDark;
-    ServiceLogger.info('Dark mode ${isDark ? 'enabled' : 'disabled'}');
+    debugPrint(info('Dark mode ${isDark ? 'enabled' : 'disabled'}');
   }
 
   /// Set system dark mode
@@ -157,21 +157,21 @@ class DarkModeService {
     if (_isSystemDarkMode) {
       _isDarkMode = _isSystemDarkMode;
     }
-    ServiceLogger.info(
+    debugPrint(info(
         'System dark mode ${isSystemDark ? 'enabled' : 'disabled'}');
   }
 
   /// Set high contrast mode
   void setHighContrast(bool isHighContrast) {
     _isHighContrast = isHighContrast;
-    ServiceLogger.info(
+    debugPrint(info(
         'High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}');
   }
 
   /// Set contrast ratio
   void setContrastRatio(double ratio) {
     _contrastRatio = ratio.clamp(1.0, 21.0);
-    ServiceLogger.info('Contrast ratio set to $_contrastRatio');
+    debugPrint(info('Contrast ratio set to $_contrastRatio');
   }
 
   /// Get current color scheme
@@ -342,9 +342,9 @@ class DarkModeService {
   /// Dispose service
   void dispose() {
     try {
-      ServiceLogger.info('Dark mode service disposed');
+      debugPrint(info('Dark mode service disposed');
     } catch (e) {
-      ServiceLogger.error('Error disposing dark mode service', error: e);
+      debugPrint(error('Error disposing dark mode service', error: e);
     }
   }
 }

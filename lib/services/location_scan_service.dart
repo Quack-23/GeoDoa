@@ -1,9 +1,8 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/location_model.dart';
 import '../constants/app_constants.dart';
-import '../services/logging_service.dart';
-import '../services/input_validation_service.dart';
 import '../services/loading_service.dart';
 import '../services/offline_service.dart';
 
@@ -31,24 +30,14 @@ class LocationScanService {
     try {
       // Cek koneksi internet
       if (OfflineService.instance.isOffline) {
-        ServiceLogger.warning('Cannot scan locations: device is offline');
+        debugPrint('WARNING: Cannot scan locations: device is offline');
         throw Exception('Tidak ada koneksi internet');
       }
 
-      // Validasi input
-      final validationResult = InputValidationService.validateLocationData({
-        'lat': latitude,
-        'lon': longitude,
-        'type': types.isNotEmpty ? types.first : 'masjid',
-      });
-
-      if (!validationResult.isValid) {
-        ServiceLogger.error('Invalid input for location scan', data: {
-          'errors': validationResult.errors,
-          'warnings': validationResult.warnings,
-        });
-        throw Exception(
-            'Data input tidak valid: ${validationResult.errors.join(', ')}');
+      // Simple validation
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        debugPrint('ERROR: Invalid coordinates for location scan');
+        throw Exception('Data input tidak valid: koordinat diluar range');
       }
 
       // Mulai loading

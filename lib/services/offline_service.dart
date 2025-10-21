@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../constants/app_constants.dart';
-import '../services/logging_service.dart';
+import 'package:flutter/foundation.dart';
 import '../utils/error_handler.dart';
 
 /// Service untuk mendeteksi status koneksi internet

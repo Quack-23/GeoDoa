@@ -8,7 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
-import '../services/logging_service.dart';
+import 'package:flutter/foundation.dart';
 
 /// Service untuk copy, share, export, dan import data
 class CopyShareService {
