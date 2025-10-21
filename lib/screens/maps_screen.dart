@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import '../services/location_service.dart';
 import '../services/database_service.dart';
-import '../services/persistent_state_service.dart';
+// PersistentStateService removed - using SharedPreferences directly
 import '../models/location_model.dart';
 
 class MapsScreen extends StatefulWidget {
@@ -59,7 +59,16 @@ class _MapsScreenState extends State<MapsScreen> with RestorationMixin {
   // Load persistent state
   Future<void> _loadPersistentState() async {
     try {
-      final state = await PersistentStateService.instance.getMapsState();
+      // Load state from SharedPreferences directly
+      final prefs = await SharedPreferences.getInstance();
+      final latitude = prefs.getDouble('maps_latitude');
+      final longitude = prefs.getDouble('maps_longitude');
+      final zoom = prefs.getDouble('maps_zoom') ?? 14.0;
+      
+      Map<String, dynamic>? state;
+      if (latitude != null && longitude != null) {
+        state = {'latitude': latitude, 'longitude': longitude, 'zoom': zoom};
+      }
       if (state != null && mounted) {
         setState(() {
           _currentLocation = LatLng(state['latitude'], state['longitude']);
@@ -109,18 +118,12 @@ class _MapsScreenState extends State<MapsScreen> with RestorationMixin {
   Future<void> _savePersistentState() async {
     try {
       if (_currentLocation != null) {
-        await PersistentStateService.instance.saveMapsState(
-          latitude: _currentLocation!.latitude,
-          longitude: _currentLocation!.longitude,
-          zoom: _mapController.camera.zoom,
-          markers: _markers
-              .map((marker) => {
-                    'latitude': marker.point.latitude,
-                    'longitude': marker.point.longitude,
-                    'name': marker.key.toString(),
-                  })
-              .toList(),
-        );
+        // Save state to SharedPreferences directly
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('maps_latitude', _currentLocation!.latitude);
+        await prefs.setDouble('maps_longitude', _currentLocation!.longitude);
+        await prefs.setDouble('maps_zoom', _mapController.camera.zoom);
+        // Note: markers state removed - can be re-implemented if needed
       }
     } catch (e) {
       debugPrint('Error saving maps state: $e');

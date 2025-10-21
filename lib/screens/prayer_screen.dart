@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
-import '../services/persistent_state_service.dart';
+// PersistentStateService removed - using SharedPreferences directly
 import '../models/prayer_model.dart';
 import '../widgets/copy_share_widgets.dart';
 import '../widgets/app_loading.dart';
@@ -76,9 +76,10 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
       // Use locationType from widget if provided, otherwise load from persistent state
       String initialCategory = widget.locationType ?? 'semua';
 
-      final state = await PersistentStateService.instance.getPrayerState();
-      if (state != null && widget.locationType == null) {
-        initialCategory = state['selectedLocationType'] ?? 'semua';
+      // Load state from SharedPreferences directly
+      final prefs = await SharedPreferences.getInstance();
+      if (widget.locationType == null) {
+        initialCategory = prefs.getString('prayer_selectedCategory') ?? 'semua';
       }
 
       // Set state once to prevent animations
@@ -124,14 +125,13 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
   // Save persistent state
   Future<void> _savePersistentState() async {
     try {
-      await PersistentStateService.instance.savePrayerState(
-        selectedLocationType: _selectedCategory,
-        scrollPosition:
-            _scrollController.hasClients ? _scrollController.offset.round() : 0,
-        filters: {
-          'categories': _categories,
-        },
-      );
+      // Save state to SharedPreferences directly
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('prayer_selectedCategory', _selectedCategory);
+      if (_scrollController.hasClients) {
+        await prefs.setDouble('prayer_scrollPosition', _scrollController.offset);
+      }
+      // Note: filters state removed - can be re-implemented if needed
     } catch (e) {
       debugPrint('Error saving prayer state: $e');
     }

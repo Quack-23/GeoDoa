@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../services/location_service.dart';
 import '../services/location_scan_service.dart';
-import '../services/persistent_state_service.dart';
+// PersistentStateService removed - using SharedPreferences directly
 import '../services/loading_service.dart';
 import '../services/offline_service.dart';
 import '../services/scan_statistics_service.dart';
@@ -172,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen>
   // Load persistent state
   Future<void> _loadPersistentState() async {
     try {
-      final state = await PersistentStateService.instance.getHomeState();
+      // Load state from SharedPreferences directly
       final prefs = await SharedPreferences.getInstance();
 
       // Load all data first without setState to prevent animations
@@ -215,11 +215,13 @@ class _HomeScreenState extends State<HomeScreen>
   // Save persistent state
   Future<void> _savePersistentState() async {
     try {
-      await PersistentStateService.instance.saveHomeState(
-        isScanning: _isScanning,
-        lastScanTime: _lastScanTime ?? DateTime.now(),
-        recentLocations: _scannedLocations.map((loc) => loc.toMap()).toList(),
-      );
+      // Save state to SharedPreferences directly
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isScanning', _isScanning);
+      if (_lastScanTime != null) {
+        await prefs.setString('lastScanTime', _lastScanTime!.toIso8601String());
+      }
+      // Note: recentLocations removed - can be re-implemented if needed
     } catch (e) {
       debugPrint('Error saving home state: $e');
     }
