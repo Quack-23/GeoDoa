@@ -1,0 +1,72 @@
+name: doa_maps
+description: "Aplikasi tracking lokasi dengan notifikasi doa Islam"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Location & Maps - GRATIS!
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  
+  # Background processing
+  flutter_background_service: ^5.0.5
+  
+  # Notifications
+  flutter_local_notifications: ^17.2.3
+  
+  # Database
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  
+  # State management
+  provider: ^6.1.1
+  
+  # HTTP requests
+  http: ^1.1.0
+
+  # Persistent State
+  shared_preferences: ^2.2.2
+  
+  # Permissions
+  permission_handler: ^11.1.0
+  
+  # UI Components
+  cupertino_icons: ^1.0.2
+  flutter_svg: ^2.0.9
+  
+  # Security & Encryption
+  crypto: ^3.0.3
+  encrypt: ^5.0.1
+  
+  # Logging & Debugging
+  logger: ^2.0.2+1
+  
+  # Connectivity & Network
+  connectivity_plus: ^5.0.2
+  
+  # Copy & Share
+  share_plus: ^7.2.1
+  path_provider: ^2.1.1
+  file_picker: ^8.0.0
+  pdf: ^3.10.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/data/
