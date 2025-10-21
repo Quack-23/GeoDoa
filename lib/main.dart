@@ -93,12 +93,12 @@ Future<void> _initializeSampleDataIfNeeded() async {
     if (!sampleDataInserted) {
       await DatabaseService.instance.insertSampleData();
       await prefs.setBool('sample_data_inserted', true);
-      ServiceLogger.info('Sample data inserted (first time only)');
+      debugPrint('INFO: Sample data inserted (first time only)');
     } else {
-      ServiceLogger.info('Sample data already exists - skipping');
+      debugPrint('INFO: Sample data already exists - skipping');
     }
   } catch (e) {
-    ServiceLogger.error('Error checking sample data: $e');
+    debugPrint('ERROR: Error checking sample data: $e');
   }
 }
 
@@ -106,31 +106,11 @@ Future<void> _initializeSampleDataIfNeeded() async {
 void _initializeBackgroundServicesAsync() {
   Future.microtask(() async {
     try {
-      // Start monitoring services
-      MemoryLeakDetectionService.instance.startMonitoring();
-
-      await Future.wait([
-        BatteryOptimizationService.instance.startMonitoring(),
-        ServiceReliabilityManager.instance.initialize(),
-        AccessibilityService.instance.initialize(),
-        ResponsiveDesignService.instance.initialize(),
-        AnimationOptimizationService.instance.initialize(),
-      ]);
-
-      if (!kIsWeb) {
-        await Future.wait([
-          BackgroundCleanupService.instance.start(),
-          SmartBackgroundService.instance.start(),
-          OfflineDataSyncService.instance.initialize(),
-          DataBackupService.instance.initialize(),
-          DataRecoveryService.instance.initialize(),
-        ]);
-      }
-
-      await ServiceReliabilityManager.instance.startMonitoring();
-      ServiceLogger.info('Background services initialized');
+      // Simplified background service initialization
+      // Removed over-engineering services
+      debugPrint('INFO: Background services initialized (simplified)');
     } catch (e) {
-      ServiceLogger.error('Error initializing background services: $e');
+      debugPrint('ERROR: Error initializing background services: $e');
     }
   });
 }
@@ -140,38 +120,37 @@ void main() async {
 
   try {
     // Initialize logging service
-    ServiceLogger.info('Starting Doa Maps application');
+    debugPrint('INFO: Starting Doa Maps application');
 
     // PHASE 1: Critical services only (parallel where possible)
     await Future.wait([
-      EncryptionService.instance.initialize(),
       OfflineService.instance.initialize(),
       StateManagementService.instance.initialize(),
       DarkModeService.instance.initialize(),
     ]);
-    ServiceLogger.info('Critical services initialized');
+    debugPrint('INFO: Critical services initialized');
 
     // PHASE 2: Essential services for app functionality
     if (!kIsWeb) {
       // Initialize database ONCE (skip sample data if already exists)
       await DatabaseService.instance.initDatabase();
       await _initializeSampleDataIfNeeded(); // Only insert if database is empty
-      ServiceLogger.info('Database initialized');
+      debugPrint('INFO: Database initialized');
 
       // Initialize notification and alarm services in parallel
       await Future.wait([
         NotificationService.instance.initNotifications(),
         LocationAlarmService.instance.initializeAlarmService(),
       ]);
-      ServiceLogger.info('Notification and alarm services initialized');
+      debugPrint('INFO: Notification and alarm services initialized');
     }
 
     // PHASE 3: Background services (non-blocking)
     _initializeBackgroundServicesAsync();
 
-    ServiceLogger.info('Essential services initialized - App ready');
+    debugPrint('INFO: Essential services initialized - App ready');
   } catch (e) {
-    ServiceLogger.critical('Failed to initialize application', error: e);
+    debugPrint('CRITICAL: Failed to initialize application: $e');
     // Continue running app even if some services fail
   }
 

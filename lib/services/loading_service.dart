@@ -34,10 +34,7 @@ class LoadingService extends ChangeNotifier {
     _loadingMessages[key] = message ?? 'Memuat...';
     _loadingProgress[key] = progress ?? 0.0;
 
-    ServiceLogger.debug('Started loading: $key', data: {
-      'message': message,
-      'progress': progress,
-    });
+    debugPrint('DEBUG: Started loading: $key - message: $message, progress: $progress');
 
     notifyListeners();
   }
@@ -46,8 +43,7 @@ class LoadingService extends ChangeNotifier {
   void updateLoadingMessage(String key, String message) {
     if (_loadingStates[key] == true) {
       _loadingMessages[key] = message;
-      ServiceLogger.debug('Updated loading message: $key',
-          data: {'message': message});
+      debugPrint('DEBUG: Updated loading message: $key - $message');
       notifyListeners();
     }
   }
@@ -56,8 +52,7 @@ class LoadingService extends ChangeNotifier {
   void updateLoadingProgress(String key, double progress) {
     if (_loadingStates[key] == true) {
       _loadingProgress[key] = progress.clamp(0.0, 1.0);
-      ServiceLogger.debug('Updated loading progress: $key',
-          data: {'progress': progress});
+      debugPrint('DEBUG: Updated loading progress: $key - $progress');
       notifyListeners();
     }
   }
@@ -68,7 +63,7 @@ class LoadingService extends ChangeNotifier {
     _loadingMessages.remove(key);
     _loadingProgress.remove(key);
 
-    ServiceLogger.debug('Stopped loading: $key');
+    debugPrint('DEBUG: Stopped loading: $key');
     notifyListeners();
   }
 
@@ -78,7 +73,7 @@ class LoadingService extends ChangeNotifier {
     _loadingMessages.clear();
     _loadingProgress.clear();
 
-    ServiceLogger.debug('Stopped all loading states');
+    debugPrint('DEBUG: Stopped all loading states');
     notifyListeners();
   }
 
