@@ -35,7 +35,10 @@ class LocationScanService {
       }
 
       // Simple validation
-      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      if (latitude < -90 ||
+          latitude > 90 ||
+          longitude < -180 ||
+          longitude > 180) {
         debugPrint('ERROR: Invalid coordinates for location scan');
         throw Exception('Data input tidak valid: koordinat diluar range');
       }

@@ -29,7 +29,7 @@ class DarkModeService {
   /// Initialize dark mode service
   Future<void> initialize() async {
     try {
-      debugPrint(info('Initializing dark mode service');
+      debugPrint('INFO: Initializing dark mode service');
 
       // Initialize color schemes
       _initializeColorSchemes();
@@ -37,14 +37,9 @@ class DarkModeService {
       // Check system dark mode
       await _checkSystemDarkMode();
 
-      debugPrint(info('Dark mode service initialized', data: {
-        'is_dark_mode': _isDarkMode,
-        'is_system_dark_mode': _isSystemDarkMode,
-        'is_high_contrast': _isHighContrast,
-        'contrast_ratio': _contrastRatio,
-      });
+      debugPrint('INFO: Dark mode service initialized - isDark: $_isDarkMode, isSystem: $_isSystemDarkMode, contrast: $_contrastRatio');
     } catch (e) {
-      debugPrint(error('Failed to initialize dark mode service', error: e);
+      debugPrint('ERROR: Failed to initialize dark mode service: $e');
     }
   }
 
@@ -139,16 +134,16 @@ class DarkModeService {
       _isSystemDarkMode = false; // Mock value
       _isDarkMode = _isSystemDarkMode;
 
-      debugPrint(debug('System dark mode checked');
+      debugPrint('DEBUG: System dark mode checked');
     } catch (e) {
-      debugPrint(error('Error checking system dark mode', error: e);
+      debugPrint('ERROR: Error checking system dark mode: $e');
     }
   }
 
   /// Set dark mode
   void setDarkMode(bool isDark) {
     _isDarkMode = isDark;
-    debugPrint(info('Dark mode ${isDark ? 'enabled' : 'disabled'}');
+    debugPrint('INFO: Dark mode ${isDark ? 'enabled' : 'disabled'}');
   }
 
   /// Set system dark mode
@@ -157,21 +152,19 @@ class DarkModeService {
     if (_isSystemDarkMode) {
       _isDarkMode = _isSystemDarkMode;
     }
-    debugPrint(info(
-        'System dark mode ${isSystemDark ? 'enabled' : 'disabled'}');
+    debugPrint('INFO: System dark mode ${isSystemDark ? 'enabled' : 'disabled'}');
   }
 
   /// Set high contrast mode
   void setHighContrast(bool isHighContrast) {
     _isHighContrast = isHighContrast;
-    debugPrint(info(
-        'High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}');
+    debugPrint('INFO: High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}');
   }
 
   /// Set contrast ratio
   void setContrastRatio(double ratio) {
     _contrastRatio = ratio.clamp(1.0, 21.0);
-    debugPrint(info('Contrast ratio set to $_contrastRatio');
+    debugPrint('INFO: Contrast ratio set to $_contrastRatio');
   }
 
   /// Get current color scheme
@@ -342,9 +335,9 @@ class DarkModeService {
   /// Dispose service
   void dispose() {
     try {
-      debugPrint(info('Dark mode service disposed');
+      debugPrint('INFO: Dark mode service disposed');
     } catch (e) {
-      debugPrint(error('Error disposing dark mode service', error: e);
+      debugPrint('ERROR: Error disposing dark mode service: $e');
     }
   }
 }
