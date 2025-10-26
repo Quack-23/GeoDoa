@@ -5,7 +5,6 @@ import '../services/database_service.dart';
 // PersistentStateService removed - using SharedPreferences directly
 import '../models/prayer_model.dart';
 import '../widgets/copy_share_widgets.dart';
-import '../widgets/app_loading.dart';
 import '../widgets/modern_app_bar.dart';
 import '../constants/app_constants.dart';
 
@@ -35,6 +34,7 @@ class _PrayerScreenState extends State<PrayerScreen>
   String _selectedCategory = 'semua';
   bool _isLoading = true;
   bool _isStateLoaded = false; // Flag to prevent animations during initial load
+  bool _dataReady = false; // ✅ Track when prayer data is loaded
   final ScrollController _scrollController = ScrollController();
 
   // Categories menggunakan main categories + semua
@@ -135,6 +135,7 @@ class _PrayerScreenState extends State<PrayerScreen>
 
   Future<void> _loadPrayers() async {
     if (!mounted) return;
+    // ✅ Don't block UI, show skeleton instead
     setState(() => _isLoading = true);
 
     try {
@@ -155,10 +156,14 @@ class _PrayerScreenState extends State<PrayerScreen>
       setState(() {
         _prayers = prayers;
         _isLoading = false;
+        _dataReady = true; // ✅ Mark data as ready
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _dataReady = true; // Still show UI on error
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading prayers: $e')),
@@ -197,16 +202,16 @@ class _PrayerScreenState extends State<PrayerScreen>
                       },
                       child: Column(
                         children: [
-                          _buildCategoryFilter(),
+                          _buildCategoryFilter(), // Always show category filter
                           Expanded(
-                            child: _isLoading
-                                ? const AppLoading(message: 'Memuat doa...')
+                            child: _isLoading && !_dataReady
+                                ? _buildPrayerListSkeleton() // ✅ Show skeleton instead of loading
                                 : _buildPrayersList(),
                           ),
                         ],
                       ),
                     )
-                  : const AppLoading(message: 'Menyiapkan layar doa...'),
+                  : _buildInitialSkeleton(), // ✅ Skeleton for initial state load
             ),
           ],
         ),
@@ -951,6 +956,93 @@ class _PrayerScreenState extends State<PrayerScreen>
         ),
         margin: const EdgeInsets.all(16),
       ),
+    );
+  }
+
+  // ========== SKELETON LOADING WIDGETS ==========
+
+  // ✅ Initial skeleton (while state loading)
+  Widget _buildInitialSkeleton() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      children: [
+        // Category filter skeleton
+        Container(
+          height: 44,
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey[800] : Colors.grey[300],
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        // Prayer list skeleton
+        Expanded(child: _buildPrayerListSkeleton()),
+      ],
+    );
+  }
+
+  // ✅ Prayer list skeleton
+  Widget _buildPrayerListSkeleton() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: 8, // Show 8 skeleton items
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            height: 100,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[800] : Colors.grey[300],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Icon skeleton
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[700] : Colors.grey[400],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Text skeleton
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[700] : Colors.grey[400],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 120,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[700] : Colors.grey[400],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

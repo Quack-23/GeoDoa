@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/app_loading.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
@@ -35,13 +34,14 @@ class _HomeScreenState extends State<HomeScreen>
   // Recent Data (Riwayat Scan)
   List<ScanHistoryItem> _recentHistory = [];
 
-  // UI State
-  bool _isLoading = true;
+  // ✅ OPTIMIZED: UI State - show UI immediately, load data in background
+  bool _dataReady = false; // ← Track when data is loaded
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // ✅ Load data in background (non-blocking)
     _loadDashboardData();
   }
 
@@ -94,13 +94,15 @@ class _HomeScreenState extends State<HomeScreen>
           _totalScans = totalScans;
           _totalLocations = totalLocations;
           _recentHistory = recentHistory;
-          _isLoading = false;
+          _dataReady = true; // ✅ Mark data as ready
         });
       }
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _dataReady = true; // Still show UI even on error
+        });
       }
     }
   }
@@ -110,12 +112,7 @@ class _HomeScreenState extends State<HomeScreen>
     super.build(context); // ✅ Required for AutomaticKeepAliveClientMixin
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_isLoading) {
-      return const Scaffold(
-        body: AppLoading(message: 'Memuat dashboard...'),
-      );
-    }
-
+    // ✅ OPTIMIZED: Always show UI, never blocking!
     return Scaffold(
       body: Stack(
         children: [
@@ -128,15 +125,23 @@ class _HomeScreenState extends State<HomeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(isDark),
+                    // ✅ Show skeleton while data loading
+                    _dataReady
+                        ? _buildHeader(isDark)
+                        : _buildHeaderSkeleton(isDark),
                     const SizedBox(height: 20),
-                    _buildFavoriteLocationCard(isDark),
+                    _dataReady
+                        ? _buildFavoriteLocationCard(isDark)
+                        : _buildCardSkeleton(isDark, height: 180),
                     const SizedBox(height: 20),
-                    _buildStatsCards(isDark),
+                    _dataReady
+                        ? _buildStatsCards(isDark)
+                        : _buildStatsCardsSkeleton(isDark),
                     const SizedBox(height: 20),
-                    _buildQuickActions(isDark),
+                    _buildQuickActions(isDark), // Always show (no data needed)
                     const SizedBox(height: 20),
-                    _buildBackgroundScanStatus(isDark),
+                    _buildBackgroundScanStatus(
+                        isDark), // StreamBuilder (always show)
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -876,6 +881,125 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       ),
+    );
+  }
+
+  // ========== SKELETON LOADING WIDGETS ==========
+
+  // ✅ Skeleton for Header
+  Widget _buildHeaderSkeleton(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[800] : Colors.grey[300],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[400],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 150,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[700] : Colors.grey[400],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 200,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[700] : Colors.grey[400],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: 250,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[700] : Colors.grey[400],
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Generic skeleton card
+  Widget _buildCardSkeleton(bool isDark, {double height = 150}) {
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[800] : Colors.grey[300],
+        borderRadius: BorderRadius.circular(20),
+      ),
+    );
+  }
+
+  // ✅ Skeleton for Stats Cards
+  Widget _buildStatsCardsSkeleton(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Container(
+            width: 120,
+            height: 20,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[700] : Colors.grey[400],
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
