@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
-import '../services/data_backup_service.dart';
-import '../services/offline_data_sync_service.dart';
-import '../services/data_recovery_service.dart';
+import '../services/simple_background_scan_service.dart';
+import '../services/database_service.dart';
 import '../widgets/app_loading.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,51 +16,37 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
   // Location & Tracking Settings
-  double _scanRadius = 50.0; // meters
-  bool _masjidEnabled = true;
-  bool _sekolahEnabled = true;
-  bool _rumahSakitEnabled = true;
-  bool _tempatKerjaEnabled = false;
-  bool _pasarEnabled = false;
-  bool _restoranEnabled = false;
-  bool _terminalEnabled = false;
-  bool _rumahOrangEnabled = false;
-  bool _cafeEnabled = false;
-  String _gpsAccuracyMode = 'balanced'; // high, balanced, battery_saver
+  double _scanRadius = 100.0; // meter (default 100m)
 
   // Notification Settings
   bool _notificationSound = true;
   bool _notificationVibration = true;
   bool _notificationLED = false;
   String _notificationVolume = 'medium'; // silent, low, medium, high
-  int _notificationDuration = 5; // seconds
-
-  // Privacy & Data Settings
-  int _dataRetentionDays = 7; // 1, 7, 30, 90, 365
-  bool _autoDeleteEnabled = true;
-  bool _anonymousMode = false;
-  bool _dataExportEnabled = true;
 
   // Display & UI Settings
   String _appTheme = 'system'; // light, dark, system
-  bool _isStateLoaded = false; // Flag to prevent animations during initial load
+  bool _isStateLoaded = false;
 
-  // Data Management Settings
-  bool _autoBackupEnabled = true;
-  bool _autoSyncEnabled = false; // local mode: no online sync
-  bool _autoRecoveryEnabled = true;
-  int _backupIntervalHours = 24;
-  int _syncIntervalMinutes = 30;
-  int _recoveryCheckIntervalHours = 6;
+  // ✅ Debounce timer for settings save
+  Timer? _saveDebounceTimer;
 
   // Advanced Settings
-  final List<String> _gpsAccuracyOptions = [
-    'high',
-    'balanced',
-    'battery_saver'
-  ];
   final List<String> _volumeOptions = ['silent', 'low', 'medium', 'high'];
-  final List<int> _retentionOptions = [1, 7, 30, 90, 365];
+
+  // Radius scan options (in meters)
+  final List<double> _radiusOptions = [
+    10,
+    20,
+    30,
+    50,
+    80,
+    100,
+    120,
+    150,
+    200,
+    250
+  ];
 
   @override
   String get restorationId => 'settings_screen';
@@ -69,105 +55,61 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
   void initState() {
     super.initState();
     _loadSettings();
-    // Load theme from ThemeManager
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ThemeManager>().loadTheme();
-    });
+    // Theme akan di-load dari _loadSettings, tidak perlu load lagi dari ThemeManager
+    // untuk menghindari tema berubah sendiri saat buka settings
+  }
+
+  @override
+  void dispose() {
+    _saveDebounceTimer?.cancel();
+    super.dispose();
   }
 
   @override
   void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
-    // Restore state from previous session
     if (initialRestore) {
       _loadSettings();
     }
+  }
+
+  // ✅ Debounced save to prevent excessive writes
+  void _debouncedSave() {
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _saveSettings();
+    });
   }
 
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Load all settings first without setState to prevent animations
-      final scanRadius = prefs.getDouble('scan_radius') ?? 50.0;
-      final masjidEnabled = prefs.getBool('masjid_enabled') ?? true;
-      final sekolahEnabled = prefs.getBool('sekolah_enabled') ?? true;
-      final rumahSakitEnabled = prefs.getBool('rumah_sakit_enabled') ?? true;
-      final tempatKerjaEnabled = prefs.getBool('tempat_kerja_enabled') ?? false;
-      final pasarEnabled = prefs.getBool('pasar_enabled') ?? false;
-      final restoranEnabled = prefs.getBool('restoran_enabled') ?? false;
-      final terminalEnabled = prefs.getBool('terminal_enabled') ?? false;
-      final rumahOrangEnabled = prefs.getBool('rumah_orang_enabled') ?? false;
-      final cafeEnabled = prefs.getBool('cafe_enabled') ?? false;
-      final gpsAccuracyMode =
-          prefs.getString('gps_accuracy_mode') ?? 'balanced';
+      final scanRadiusKm =
+          prefs.getDouble('scan_radius_km') ?? 0.1; // default 100m = 0.1km
       final notificationSound = prefs.getBool('notification_sound') ?? true;
       final notificationVibration =
           prefs.getBool('notification_vibration') ?? true;
       final notificationLED = prefs.getBool('notification_led') ?? false;
       final notificationVolume =
           prefs.getString('notification_volume') ?? 'medium';
-      final notificationDuration = prefs.getInt('notification_duration') ?? 5;
-      final dataRetentionDays = prefs.getInt('data_retention_days') ?? 7;
-      final autoDeleteEnabled = prefs.getBool('auto_delete_enabled') ?? true;
-      final anonymousMode = prefs.getBool('anonymous_mode') ?? false;
-      final dataExportEnabled = prefs.getBool('data_export_enabled') ?? true;
       final appTheme = prefs.getString('app_theme') ?? 'system';
 
-      // Data Management Settings
-      final autoBackupEnabled = prefs.getBool('auto_backup_enabled') ?? true;
-      final autoSyncEnabled = prefs.getBool('auto_sync_enabled') ?? true;
-      final autoRecoveryEnabled =
-          prefs.getBool('auto_recovery_enabled') ?? true;
-      final backupIntervalHours = prefs.getInt('backup_interval_hours') ?? 24;
-      final syncIntervalMinutes = prefs.getInt('sync_interval_minutes') ?? 30;
-      final recoveryCheckIntervalHours =
-          prefs.getInt('recovery_check_interval_hours') ?? 6;
-
-      // Set all state at once to prevent individual animations
       setState(() {
-        // Location & Tracking
-        _scanRadius = scanRadius;
-        _masjidEnabled = masjidEnabled;
-        _sekolahEnabled = sekolahEnabled;
-        _rumahSakitEnabled = rumahSakitEnabled;
-        _tempatKerjaEnabled = tempatKerjaEnabled;
-        _pasarEnabled = pasarEnabled;
-        _restoranEnabled = restoranEnabled;
-        _terminalEnabled = terminalEnabled;
-        _rumahOrangEnabled = rumahOrangEnabled;
-        _cafeEnabled = cafeEnabled;
-        _gpsAccuracyMode = gpsAccuracyMode;
+        // Convert km to meter and snap to nearest valid option
+        final radiusMeters = scanRadiusKm * 1000;
+        _scanRadius = _snapToNearestRadius(radiusMeters);
 
-        // Notifications
         _notificationSound = notificationSound;
         _notificationVibration = notificationVibration;
         _notificationLED = notificationLED;
         _notificationVolume = notificationVolume;
-        _notificationDuration = notificationDuration;
-
-        // Privacy & Data
-        _dataRetentionDays = dataRetentionDays;
-        _autoDeleteEnabled = autoDeleteEnabled;
-        _anonymousMode = anonymousMode;
-        _dataExportEnabled = dataExportEnabled;
-
-        // Display & UI
         _appTheme = appTheme;
-
-        // Data Management
-        _autoBackupEnabled = autoBackupEnabled;
-        _autoSyncEnabled = autoSyncEnabled;
-        _autoRecoveryEnabled = autoRecoveryEnabled;
-        _backupIntervalHours = backupIntervalHours;
-        _syncIntervalMinutes = syncIntervalMinutes;
-        _recoveryCheckIntervalHours = recoveryCheckIntervalHours;
-
-        _isStateLoaded = true; // Mark state as loaded
+        _isStateLoaded = true;
       });
     } catch (e) {
       debugPrint('Error loading settings: $e');
       setState(() {
-        _isStateLoaded = true; // Mark as loaded even on error
+        _isStateLoaded = true;
       });
     }
   }
@@ -176,45 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Location & Tracking
-      await prefs.setDouble('scan_radius', _scanRadius);
-      await prefs.setBool('masjid_enabled', _masjidEnabled);
-      await prefs.setBool('sekolah_enabled', _sekolahEnabled);
-      await prefs.setBool('rumah_sakit_enabled', _rumahSakitEnabled);
-      await prefs.setBool('tempat_kerja_enabled', _tempatKerjaEnabled);
-      await prefs.setBool('pasar_enabled', _pasarEnabled);
-      await prefs.setBool('restoran_enabled', _restoranEnabled);
-      await prefs.setBool('terminal_enabled', _terminalEnabled);
-      await prefs.setBool('rumah_orang_enabled', _rumahOrangEnabled);
-      await prefs.setBool('cafe_enabled', _cafeEnabled);
-      await prefs.setString('gps_accuracy_mode', _gpsAccuracyMode);
-
-      // Notifications
-      await prefs.setBool('notification_sound', _notificationSound);
-      await prefs.setBool('notification_vibration', _notificationVibration);
-      await prefs.setBool('notification_led', _notificationLED);
-      await prefs.setString('notification_volume', _notificationVolume);
-      await prefs.setInt('notification_duration', _notificationDuration);
-
-      // Privacy & Data
-      await prefs.setInt('data_retention_days', _dataRetentionDays);
-      await prefs.setBool('auto_delete_enabled', _autoDeleteEnabled);
-      await prefs.setBool('anonymous_mode', _anonymousMode);
-      await prefs.setBool('data_export_enabled', _dataExportEnabled);
-
-      // Display & UI
-      await prefs.setString('app_theme', _appTheme);
-
-      // Data Management
-      await prefs.setBool('auto_backup_enabled', _autoBackupEnabled);
-      await prefs.setBool('auto_sync_enabled', _autoSyncEnabled);
-      await prefs.setBool('auto_recovery_enabled', _autoRecoveryEnabled);
-      await prefs.setInt('backup_interval_hours', _backupIntervalHours);
-      await prefs.setInt('sync_interval_minutes', _syncIntervalMinutes);
-      await prefs.setInt(
-          'recovery_check_interval_hours', _recoveryCheckIntervalHours);
-
-      // Advanced
+      // ✅ OPTIMIZED: Parallel saves instead of sequential
+      await Future.wait([
+        prefs.setDouble('scan_radius_km', _scanRadius / 1000),
+        prefs.setBool('notification_sound', _notificationSound),
+        prefs.setBool('notification_vibration', _notificationVibration),
+        prefs.setBool('notification_led', _notificationLED),
+        prefs.setString('notification_volume', _notificationVolume),
+        prefs.setString('app_theme', _appTheme),
+      ]);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -238,563 +150,504 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
     }
   }
 
+  Future<void> _updateScanRadius(double newRadiusMeters) async {
+    setState(() {
+      _scanRadius = newRadiusMeters;
+    });
+
+    await _saveSettings();
+
+    // ✅ Update background scan service jika aktif
+    if (SimpleBackgroundScanService.instance.isBackgroundScanActive) {
+      debugPrint(
+          '✅ Radius scan updated to ${newRadiusMeters.toInt()}m - background scan will use new radius');
+      // Background scan akan otomatis pakai radius baru dari SharedPreferences
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      appBar: _buildIslamicAppBar(isDark),
       body: _isStateLoaded
-          ? SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLocationTrackingCard(),
-                  const SizedBox(height: 16),
-                  _buildNotificationCard(),
-                  const SizedBox(height: 16),
-                  _buildPrivacyDataCard(),
-                  const SizedBox(height: 16),
-                  _buildDisplayUICard(),
-                  const SizedBox(height: 16),
-                  // _buildDataManagementCard(), // hidden in local-only mode
-                  const SizedBox(height: 16),
-                  _buildAdvancedCard(),
-                  const SizedBox(height: 16),
-                  _buildResetCard(),
-                ],
+          ? RefreshIndicator(
+              onRefresh: () async {
+                await _loadSettings();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildRadiusScanCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildNotificationCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildDisplayUICard(isDark),
+                    const SizedBox(height: 16),
+                    _buildResetCard(isDark),
+                    const SizedBox(height: 24),
+                    _buildVersionInfo(isDark),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             )
           : const AppLoading(message: 'Memuat pengaturan...'),
     );
   }
 
-  // Location & Tracking Card
-  Widget _buildLocationTrackingCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+  // ✅ Custom Islamic AppBar
+  PreferredSizeWidget _buildIslamicAppBar(bool isDark) {
+    return AppBar(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.settings,
+              size: 24,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.location_on,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
                 Text(
-                  'Lokasi & Tracking',
+                  'Pengaturan',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  'Sesuaikan aplikasi',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+          ),
+        ],
+      ),
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).colorScheme.primary,
+              Theme.of(context).colorScheme.primary.withOpacity(0.8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // Radius Scan
-            Text(
-              'Radius Scan',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Slider(
-                    value: _scanRadius,
-                    min: 10.0,
-                    max: 200.0,
-                    divisions: 19,
-                    label: '${_scanRadius.round()}m',
-                    onChanged: (value) {
-                      setState(() {
-                        _scanRadius = value;
-                      });
-                    },
-                  ),
+  // ✅ Radius Scan Card (UI diperbaiki)
+  Widget _buildRadiusScanCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_scanRadius.round()}m',
+                child: const Icon(Icons.radar, color: Colors.blue, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Radius Scan',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Jarak maksimal scan lokasi',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Display current radius
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.blue.withOpacity(0.2),
+                    Colors.cyan.withOpacity(0.2),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.blue.withOpacity(0.5),
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.location_on, color: Colors.blue, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_scanRadius.toInt()} m',
                     style: TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: isDark ? Colors.blue[300] : Colors.blue[700],
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Slider with fixed steps
+          Row(
+            children: [
+              Text(
+                '10m',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              Expanded(
+                child: Slider(
+                  value: _scanRadius,
+                  min: _radiusOptions.first,
+                  max: _radiusOptions.last,
+                  divisions: _radiusOptions.length - 1,
+                  activeColor: Colors.blue,
+                  inactiveColor: Colors.grey[300],
+                  label: '${_scanRadius.toInt()} m',
+                  onChanged: (value) {
+                    // Snap to nearest radius option
+                    final snapped = _snapToNearestRadius(value);
+                    _updateScanRadius(snapped);
+                  },
+                ),
+              ),
+              Text(
+                '250m',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Info & Available Steps
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.blue.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: isDark ? Colors.blue[300] : Colors.blue[700],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Radius ini berlaku untuk scan manual & otomatis',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.blue[200] : Colors.blue[800],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Pilihan: ${_radiusOptions.map((r) => '${r.toInt()}m').join(', ')}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                    color: isDark ? Colors.grey[500] : Colors.grey[600],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // Kategori Lokasi
-            Text(
-              'Kategori Lokasi',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildCategoryToggle('Masjid', _masjidEnabled, (value) {
-              setState(() {
-                _masjidEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.mosque, Colors.green),
-            _buildCategoryToggle('Sekolah', _sekolahEnabled, (value) {
-              setState(() {
-                _sekolahEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.school, Colors.blue),
-            _buildCategoryToggle('Rumah Sakit', _rumahSakitEnabled, (value) {
-              setState(() {
-                _rumahSakitEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.local_hospital, Colors.red),
-            _buildCategoryToggle('Tempat Kerja', _tempatKerjaEnabled, (value) {
-              setState(() {
-                _tempatKerjaEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.business, Colors.orange),
-            _buildCategoryToggle('Pasar', _pasarEnabled, (value) {
-              setState(() {
-                _pasarEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.store, Colors.purple),
-            _buildCategoryToggle('Restoran', _restoranEnabled, (value) {
-              setState(() {
-                _restoranEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.restaurant, Colors.brown),
-            _buildCategoryToggle('Terminal/Stasiun/\nBandara', _terminalEnabled,
-                (value) {
-              setState(() {
-                _terminalEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.train, Colors.blue),
-            _buildCategoryToggle('Rumah Orang', _rumahOrangEnabled, (value) {
-              setState(() {
-                _rumahOrangEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.home_work, Colors.purple),
-            _buildCategoryToggle('Cafe/Kedai', _cafeEnabled, (value) {
-              setState(() {
-                _cafeEnabled = value;
-              });
-              _saveSettings(); // Save immediately
-            }, Icons.local_cafe, Colors.orange),
-            const SizedBox(height: 16),
-
-            // GPS Accuracy Mode
-            Text(
-              'Mode GPS',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _gpsAccuracyMode,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: _gpsAccuracyOptions.map((mode) {
-                return DropdownMenuItem(
-                  value: mode,
-                  child: Text(_getGpsModeDisplayName(mode)),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _gpsAccuracyMode = value!;
-                });
-              },
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   // Notification Card
-  Widget _buildNotificationCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.notifications,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Notifikasi',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Master Notification Switch
-            // Master notification moved to ProfileScreen
-            const Divider(),
-            const SizedBox(height: 8),
-
-            // Notification Types
-            SwitchListTile(
-              title: const Text('Suara Notifikasi'),
-              value: _notificationSound,
-              onChanged: _isStateLoaded
-                  ? (value) {
-                      setState(() {
-                        _notificationSound = value;
-                      });
-                      _saveSettings(); // Save immediately
-                    }
-                  : null,
-              activeColor: Colors.green,
-            ),
-            SwitchListTile(
-              title: const Text('Getar Notifikasi'),
-              value: _notificationVibration,
-              onChanged: _isStateLoaded
-                  ? (value) {
-                      setState(() {
-                        _notificationVibration = value;
-                      });
-                      _saveSettings(); // Save immediately
-                    }
-                  : null,
-              activeColor: Colors.blue,
-            ),
-            SwitchListTile(
-              title: const Text('LED Notifikasi'),
-              value: _notificationLED,
-              onChanged: _isStateLoaded
-                  ? (value) {
-                      setState(() {
-                        _notificationLED = value;
-                      });
-                      _saveSettings(); // Save immediately
-                    }
-                  : null,
-              activeColor: Colors.orange,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Notification Volume
-            Text(
-              'Volume Notifikasi',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _notificationVolume,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: _volumeOptions.map((volume) {
-                return DropdownMenuItem(
-                  value: volume,
-                  child: Text(_getVolumeDisplayName(volume)),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _notificationVolume = value!;
-                });
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Quiet Hours moved to ProfileScreen
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Data Management Card
-  Widget _buildDataManagementCard() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
+  Widget _buildNotificationCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
+        border: Border.all(
           color: isDark
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-              : const Color(0xFFE0E0E0),
+              ? Colors.white.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.3),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.notifications_active,
+                    color: Colors.orange, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Notifikasi',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Atur suara & getar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Notification Types
+          _buildNotificationToggle(
+            icon: Icons.volume_up,
+            title: 'Suara Notifikasi',
+            value: _notificationSound,
+            color: Colors.green,
+            isDark: isDark,
+            onChanged: (value) {
+              setState(() => _notificationSound = value);
+              // ✅ OPTIMIZED: Debounced save (akan di-save saat user selesai toggle)
+              _debouncedSave();
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildNotificationToggle(
+            icon: Icons.vibration,
+            title: 'Getar Notifikasi',
+            value: _notificationVibration,
+            color: Colors.blue,
+            isDark: isDark,
+            onChanged: (value) {
+              setState(() => _notificationVibration = value);
+              _debouncedSave();
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildNotificationToggle(
+            icon: Icons.lightbulb,
+            title: 'LED Notifikasi',
+            value: _notificationLED,
+            color: Colors.amber,
+            isDark: isDark,
+            onChanged: (value) {
+              setState(() => _notificationLED = value);
+              _debouncedSave();
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          // Notification Volume
+          Text(
+            'Volume Notifikasi',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.grey.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.3),
+              ),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _notificationVolume,
+                isExpanded: true,
+                icon: const Icon(Icons.arrow_drop_down),
+                items: _volumeOptions.map((volume) {
+                  return DropdownMenuItem(
+                    value: volume,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _getVolumeIcon(volume),
+                          size: 20,
+                          color: Colors.orange,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(_getVolumeDisplayName(volume)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() => _notificationVolume = value!);
+                  _debouncedSave();
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationToggle({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required Color color,
+    required bool isDark,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: value
+              ? color.withOpacity(0.1)
+              : (isDark
+                  ? Colors.grey.withOpacity(0.05)
+                  : Colors.grey.withOpacity(0.03)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: value
+                ? color.withOpacity(0.3)
+                : (isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.2)),
+          ),
+        ),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                        : const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.storage,
-                    color: isDark
-                        ? Theme.of(context).colorScheme.primary
-                        : const Color(0xFF1976D2),
-                    size: 24,
-                  ),
+            Icon(icon, color: value ? color : Colors.grey, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: value ? FontWeight.w600 : FontWeight.normal,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Data Management',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? Theme.of(context).colorScheme.primary
-                                  : const Color(0xFF1976D2),
-                            ),
-                      ),
-                      Text(
-                        'Kelola backup, sinkronisasi, dan recovery data',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.7),
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 20),
-
-            // Backup Section
-            _buildDataSection(
-              context,
-              'Backup Data',
-              Icons.backup,
-              [
-                _buildSwitchTile(
-                  context,
-                  'Auto Backup',
-                  'Backup otomatis setiap ${_backupIntervalHours} jam',
-                  _autoBackupEnabled,
-                  (value) {
-                    setState(() {
-                      _autoBackupEnabled = value;
-                    });
-                    DataBackupService.instance.setAutoBackupEnabled(value);
-                  },
-                ),
-                _buildSliderTile(
-                  context,
-                  'Backup Interval',
-                  'Setiap ${_backupIntervalHours} jam',
-                  _backupIntervalHours.toDouble(),
-                  1,
-                  72,
-                  (value) {
-                    setState(() {
-                      _backupIntervalHours = value.round();
-                    });
-                    DataBackupService.instance
-                        .setBackupInterval(Duration(hours: value.round()));
-                  },
-                ),
-                _buildActionTile(
-                  context,
-                  'Buat Backup Sekarang',
-                  'Buat backup manual data saat ini',
-                  Icons.backup_outlined,
-                  () async {
-                    final success =
-                        await DataBackupService.instance.createBackup();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(success
-                              ? 'Backup berhasil dibuat'
-                              : 'Gagal membuat backup'),
-                          backgroundColor: success ? Colors.green : Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Sync Section
-            _buildDataSection(
-              context,
-              'Sinkronisasi Data',
-              Icons.sync,
-              [
-                _buildSwitchTile(
-                  context,
-                  'Auto Sync',
-                  'Sinkronisasi otomatis saat online',
-                  _autoSyncEnabled,
-                  (value) {
-                    setState(() {
-                      _autoSyncEnabled = value;
-                    });
-                    OfflineDataSyncService.instance.setOnlineStatus(value);
-                  },
-                ),
-                _buildSliderTile(
-                  context,
-                  'Sync Interval',
-                  'Setiap ${_syncIntervalMinutes} menit',
-                  _syncIntervalMinutes.toDouble(),
-                  5,
-                  120,
-                  (value) {
-                    setState(() {
-                      _syncIntervalMinutes = value.round();
-                    });
-                  },
-                ),
-                _buildActionTile(
-                  context,
-                  'Sync Sekarang',
-                  'Sinkronisasi data manual',
-                  Icons.sync_outlined,
-                  () async {
-                    final success =
-                        await OfflineDataSyncService.instance.forceSync();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              Text(success ? 'Sync berhasil' : 'Gagal sync'),
-                          backgroundColor: success ? Colors.green : Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Recovery Section
-            _buildDataSection(
-              context,
-              'Data Recovery',
-              Icons.restore,
-              [
-                _buildSwitchTile(
-                  context,
-                  'Auto Recovery',
-                  'Recovery otomatis jika data corrupt',
-                  _autoRecoveryEnabled,
-                  (value) {
-                    setState(() {
-                      _autoRecoveryEnabled = value;
-                    });
-                    DataRecoveryService.instance.setAutoRecoveryEnabled(value);
-                  },
-                ),
-                _buildSliderTile(
-                  context,
-                  'Recovery Check',
-                  'Cek setiap ${_recoveryCheckIntervalHours} jam',
-                  _recoveryCheckIntervalHours.toDouble(),
-                  1,
-                  24,
-                  (value) {
-                    setState(() {
-                      _recoveryCheckIntervalHours = value.round();
-                    });
-                    DataRecoveryService.instance.setRecoveryCheckInterval(
-                        Duration(hours: value.round()));
-                  },
-                ),
-                _buildActionTile(
-                  context,
-                  'Cek Integritas Data',
-                  'Periksa kesehatan data saat ini',
-                  Icons.health_and_safety_outlined,
-                  () async {
-                    final success =
-                        await DataRecoveryService.instance.forceRecoveryCheck();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              success ? 'Data sehat' : 'Data perlu recovery'),
-                          backgroundColor:
-                              success ? Colors.green : Colors.orange,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: color,
             ),
           ],
         ),
@@ -802,352 +655,318 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
     );
   }
 
-// Helper method untuk data section
-  Widget _buildDataSection(BuildContext context, String title, IconData icon,
-      List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...children,
-      ],
-    );
-  }
-
-// Helper method untuk switch tile
-  Widget _buildSwitchTile(BuildContext context, String title, String subtitle,
-      bool value, Function(bool) onChanged) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
-
-// Helper method untuk slider tile
-  Widget _buildSliderTile(BuildContext context, String title, String subtitle,
-      double value, double min, double max, Function(double) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(title),
-          subtitle: Text(subtitle),
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: (max - min).round(),
-          onChanged: onChanged,
-          activeColor: Theme.of(context).colorScheme.primary,
-        ),
-      ],
-    );
-  }
-
-// Helper method untuk action tile
-  Widget _buildActionTile(BuildContext context, String title, String subtitle,
-      IconData icon, VoidCallback onTap) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: onTap,
-    );
+  IconData _getVolumeIcon(String volume) {
+    switch (volume) {
+      case 'silent':
+        return Icons.volume_off;
+      case 'low':
+        return Icons.volume_down;
+      case 'medium':
+        return Icons.volume_up;
+      case 'high':
+        return Icons.volume_up;
+      default:
+        return Icons.volume_up;
+    }
   }
 
   // Display & UI Card
-  Widget _buildDisplayUICard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
+  Widget _buildDisplayUICard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
                   Icons.palette,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.purple,
+                  size: 24,
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'Tampilan & UI',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Consumer<ThemeManager>(
-              builder: (context, themeManager, child) {
-                return DropdownButtonFormField<String>(
-                  value: themeManager.themeMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Tema Aplikasi',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.color_lens),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'light', child: Text('Terang')),
-                    DropdownMenuItem(value: 'dark', child: Text('Gelap')),
-                    DropdownMenuItem(
-                        value: 'system', child: Text('Sesuai Sistem')),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tampilan & UI',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tema aplikasi',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
                   ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _appTheme = value;
-                      });
-                      // Update theme immediately
-                      themeManager.setTheme(value);
-                    }
-                  },
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Privacy & Data Card
-  Widget _buildPrivacyDataCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.privacy_tip,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Privasi & Data',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Consumer<ThemeManager>(
+            builder: (context, themeManager, child) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.grey.withOpacity(0.3),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Data Retention
-            Text(
-              'Retensi Data',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              value: _dataRetentionDays,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: _retentionOptions.map((days) {
-                return DropdownMenuItem(
-                  value: days,
-                  child: Text(_getRetentionDisplayName(days)),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _dataRetentionDays = value!;
-                });
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Auto Delete
-            SwitchListTile(
-              title: const Text('Hapus Data Otomatis'),
-              subtitle: const Text('Hapus data lama secara otomatis'),
-              value: _autoDeleteEnabled,
-              onChanged: _isStateLoaded
-                  ? (value) {
-                      setState(() {
-                        _autoDeleteEnabled = value;
-                      });
-                      _saveSettings(); // Save immediately
-                    }
-                  : null,
-              activeColor: Colors.orange,
-            ),
-
-            // Anonymous Mode
-            SwitchListTile(
-              title: const Text('Mode Anonim'),
-              subtitle: const Text('Tidak simpan lokasi personal'),
-              value: _anonymousMode,
-              onChanged: _isStateLoaded
-                  ? (value) {
-                      setState(() {
-                        _anonymousMode = value;
-                      });
-                      _saveSettings(); // Save immediately
-                    }
-                  : null,
-              activeColor: Colors.blue,
-            ),
-
-            // Data Export
-            SwitchListTile(
-              title: const Text('Export Data'),
-              subtitle: const Text('Izinkan export data personal'),
-              value: _dataExportEnabled,
-              onChanged: _isStateLoaded
-                  ? (value) {
-                      setState(() {
-                        _dataExportEnabled = value;
-                      });
-                      _saveSettings(); // Save immediately
-                    }
-                  : null,
-              activeColor: Colors.green,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Advanced Card
-  Widget _buildAdvancedCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.settings,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Pengaturan Lanjutan',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: themeManager.themeMode,
+                    isExpanded: true,
+                    icon: const Icon(Icons.arrow_drop_down),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'light',
+                        child: Row(
+                          children: [
+                            Icon(Icons.light_mode,
+                                size: 20, color: Colors.amber),
+                            SizedBox(width: 12),
+                            Text('Terang'),
+                          ],
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'dark',
+                        child: Row(
+                          children: [
+                            Icon(Icons.dark_mode,
+                                size: 20, color: Colors.indigo),
+                            SizedBox(width: 12),
+                            Text('Gelap'),
+                          ],
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'system',
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings_system_daydream,
+                                size: 20, color: Colors.purple),
+                            SizedBox(width: 12),
+                            Text('Sesuai Sistem'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _appTheme = value);
+                        themeManager.setTheme(value);
+                      }
+                    },
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // App Version
-            ListTile(
-              title: const Text('Versi Aplikasi'),
-              subtitle: const Text('1.0.0'),
-              trailing: const Icon(Icons.info_outline),
-            ),
-          ],
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
   // Reset Card
-  Widget _buildResetCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+  Widget _buildResetCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.orange.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child:
+                    const Icon(Icons.restore, color: Colors.orange, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reset Pengaturan',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Kembalikan ke pengaturan awal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Reload Prayers Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _reloadPrayersData,
+              icon: const Icon(Icons.refresh, size: 20),
+              label: const Text('Reload Data Doa'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Reset Settings Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _resetSettings,
+              icon: const Icon(Icons.restore, size: 20),
+              label: const Text('Reset ke Default'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Version Info (clickable)
+  Widget _buildVersionInfo(bool isDark) {
+    return InkWell(
+      onTap: _showAppDetails,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.03)
+              : Colors.grey.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.grey.withOpacity(0.2),
+          ),
+        ),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Icon(Icons.restore, color: Colors.red),
-                const SizedBox(width: 8),
-                Text(
-                  'Reset & Restore',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.teal.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.info_outline,
+                color: Colors.teal,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'DoaMaps',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Reset Settings
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _resetSettings,
-                icon: const Icon(Icons.restore),
-                label: const Text('Reset ke Default'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
+                  Text(
+                    'Versi 1.0.0',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 8),
-
-            // Clear All Data
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _clearAllData,
-                icon: const Icon(Icons.delete_forever),
-                label: const Text('Hapus Semua Data'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-              ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
             ),
           ],
         ),
@@ -1155,34 +974,137 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
     );
   }
 
-  // Helper Methods
-  Widget _buildCategoryToggle(String title, bool value,
-      ValueChanged<bool> onChanged, IconData icon, Color color) {
-    return SwitchListTile(
-      title: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(title),
-        ],
-      ),
-      value: value,
-      onChanged: _isStateLoaded ? onChanged : null,
-      activeColor: color,
+  // ✅ Show App Details Dialog
+  void _showAppDetails() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal, Colors.teal.shade700],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.mosque,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('DoaMaps'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDetailRow('Versi', '1.0.0', isDark),
+                const SizedBox(height: 12),
+                _buildDetailRow('Build', 'Beta', isDark),
+                const SizedBox(height: 12),
+                _buildDetailRow('Platform', 'Android', isDark),
+                const SizedBox(height: 20),
+                Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                const SizedBox(height: 12),
+                Text(
+                  'Tentang Aplikasi',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'DoaMaps adalah aplikasi yang membantu Anda menemukan tempat ibadah terdekat dan memberikan pengingat doa sesuai lokasi.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Dibuat dengan ❤️ oleh:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '• Quack Dev\n'
+                  '• Language Development Center\n'
+                  '• Data lokasi dari OpenStreetMap',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  String _getGpsModeDisplayName(String mode) {
-    switch (mode) {
-      case 'high':
-        return 'Tinggi (Akurat)';
-      case 'balanced':
-        return 'Seimbang (Default)';
-      case 'battery_saver':
-        return 'Hemat Baterai';
-      default:
-        return mode;
+  Widget _buildDetailRow(String label, String value, bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helper Methods
+
+  /// Snap radius to nearest valid option
+  double _snapToNearestRadius(double value) {
+    double nearest = _radiusOptions.first;
+    double minDiff = (value - nearest).abs();
+
+    for (final option in _radiusOptions) {
+      final diff = (value - option).abs();
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = option;
+      }
     }
+
+    return nearest;
   }
 
   String _getVolumeDisplayName(String volume) {
@@ -1200,26 +1122,128 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
     }
   }
 
-  String _getRetentionDisplayName(int days) {
-    if (days == 1) return '1 Hari';
-    if (days == 7) return '1 Minggu';
-    if (days == 30) return '1 Bulan';
-    if (days == 90) return '3 Bulan';
-    if (days == 365) return '1 Tahun';
-    return '$days Hari';
+  // Reload Prayers Data
+  Future<void> _reloadPrayersData() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.refresh, color: Colors.blue),
+            SizedBox(width: 12),
+            Text('Reload Data Doa'),
+          ],
+        ),
+        content: const Text(
+          'Ini akan memperbarui semua data doa dengan versi terbaru. Doa lama akan diganti dengan doa baru berdasarkan 9 kategori.\n\nLanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Memuat ulang data doa...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+
+              try {
+                // Reload prayers data
+                await DatabaseService.instance.reloadPrayersData();
+
+                if (mounted) {
+                  Navigator.pop(context); // Close loading
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                                'Data doa berhasil diperbarui! Silakan buka Prayer Screen untuk melihat doa-doa baru.'),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context); // Close loading
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text('Gagal reload data: $e'),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reload'),
+          ),
+        ],
+      ),
+    );
   }
-
-  // _formatTimeOfDay moved to ProfileScreen
-
-  // Quiet hours methods moved to ProfileScreen
 
   void _resetSettings() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Pengaturan'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.restore, color: Colors.orange),
+            SizedBox(width: 12),
+            Text('Reset Pengaturan'),
+          ],
+        ),
         content: const Text(
-            'Apakah Anda yakin ingin mengembalikan semua pengaturan ke default?'),
+          'Apakah Anda yakin ingin mengembalikan semua pengaturan ke default?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1230,38 +1254,11 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
               Navigator.pop(context);
               _loadDefaultSettings();
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _clearAllData() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Semua Data'),
-        content: const Text(
-            'Apakah Anda yakin ingin menghapus semua data? Tindakan ini tidak dapat dibatalkan.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement clear all data
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur ini akan segera tersedia'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hapus'),
           ),
         ],
       ),
@@ -1270,32 +1267,15 @@ class _SettingsScreenState extends State<SettingsScreen> with RestorationMixin {
 
   void _loadDefaultSettings() {
     setState(() {
-      // Reset to default values
-      _scanRadius = 50.0;
-      _masjidEnabled = true;
-      _sekolahEnabled = true;
-      _rumahSakitEnabled = true;
-      _tempatKerjaEnabled = false;
-      _pasarEnabled = false;
-      _restoranEnabled = false;
-      _terminalEnabled = false;
-      _rumahOrangEnabled = false;
-      _cafeEnabled = false;
-      _gpsAccuracyMode = 'balanced';
-
+      _scanRadius = 100.0; // 100 meter
       _notificationSound = true;
       _notificationVibration = true;
       _notificationLED = false;
       _notificationVolume = 'medium';
-      _notificationDuration = 5;
-
-      _dataRetentionDays = 7;
-      _autoDeleteEnabled = true;
-      _anonymousMode = false;
-      _dataExportEnabled = true;
-
       _appTheme = 'system';
     });
+
+    _saveSettings();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

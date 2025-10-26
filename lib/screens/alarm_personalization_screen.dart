@@ -304,6 +304,12 @@ class _AlarmPersonalizationScreenState
                       ),
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    color: color,
+                    onPressed: onSetLocation,
+                    tooltip: 'Ubah Lokasi',
+                  ),
                 ],
               ),
             ),
@@ -413,13 +419,225 @@ class _AlarmPersonalizationScreenState
   }
 
   Future<void> _selectLocation({required bool isHome}) async {
-    // Implementation for selecting location from database
-    // This would show a list of locations for user to choose from
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Fitur pemilihan lokasi akan segera tersedia'),
-        duration: Duration(seconds: 2),
+    try {
+      // Get all locations from database
+      final allLocations = await DatabaseService.instance.getAllLocations();
+
+      if (allLocations.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Belum ada lokasi tersimpan. Tambahkan di halaman Peta'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Show location picker dialog
+      if (mounted) {
+        final selectedLocation = await showDialog<LocationModel>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Pilih Lokasi ${isHome ? "Rumah" : "Kantor"}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: allLocations.length,
+                itemBuilder: (context, index) {
+                  final location = allLocations[index];
+                  return ListTile(
+                    leading: _buildLocationIcon(location.locationSubCategory),
+                    title: Text(location.name),
+                    subtitle: Text(
+                      '${location.locationSubCategory} • ${location.realSub.replaceAll('_', ' ')}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => Navigator.pop(context, location),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+            ],
+          ),
+        );
+
+        if (selectedLocation != null) {
+          // Save the selected location
+          final prefs = await SharedPreferences.getInstance();
+          if (isHome) {
+            await prefs.setInt('user_home_id', selectedLocation.id!);
+            setState(() {
+              _userHome = selectedLocation;
+            });
+          } else {
+            await prefs.setInt('user_office_id', selectedLocation.id!);
+            setState(() {
+              _userOffice = selectedLocation;
+            });
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Lokasi ${isHome ? "rumah" : "kantor"} berhasil diatur: ${selectedLocation.name}',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error selecting location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memilih lokasi'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildLocationIcon(String subCategory) {
+    IconData icon;
+    Color color;
+
+    switch (subCategory) {
+      case 'Masjid':
+        icon = Icons.mosque;
+        color = Colors.teal;
+        break;
+      case 'Musholla':
+        icon = Icons.mosque;
+        color = Colors.teal.shade300;
+        break;
+      case 'Pesantren':
+        icon = Icons.school;
+        color = Colors.green.shade700;
+        break;
+      case 'Sekolah':
+        icon = Icons.school;
+        color = Colors.purple;
+        break;
+      case 'Universitas':
+        icon = Icons.apartment;
+        color = Colors.deepPurple;
+        break;
+      case 'Kursus & Pelatihan':
+        icon = Icons.menu_book;
+        color = Colors.indigo;
+        break;
+      case 'Rumah Sakit':
+        icon = Icons.local_hospital;
+        color = Colors.red;
+        break;
+      case 'Klinik':
+        icon = Icons.medical_services;
+        color = Colors.red.shade300;
+        break;
+      case 'Apotek':
+        icon = Icons.local_pharmacy;
+        color = Colors.pink;
+        break;
+      case 'Rumah':
+        icon = Icons.home;
+        color = Colors.green;
+        break;
+      case 'Kos / Asrama':
+        icon = Icons.bed;
+        color = Colors.blue.shade300;
+        break;
+      case 'Kontrakan':
+        icon = Icons.house_outlined;
+        color = Colors.cyan;
+        break;
+      case 'Kantor':
+        icon = Icons.business;
+        color = Colors.orange;
+        break;
+      case 'Toko & Bisnis':
+        icon = Icons.store;
+        color = Colors.amber.shade700;
+        break;
+      case 'Bengkel & Pabrik':
+        icon = Icons.build;
+        color = Colors.brown;
+        break;
+      case 'Restoran / Rumah Makan':
+        icon = Icons.restaurant;
+        color = Colors.deepOrange;
+        break;
+      case 'Pasar & Mall':
+        icon = Icons.shopping_bag;
+        color = Colors.amber;
+        break;
+      case 'Tempat Wisata':
+        icon = Icons.landscape;
+        color = Colors.lightGreen;
+        break;
+      case 'Terminal':
+        icon = Icons.directions_bus;
+        color = Colors.indigo;
+        break;
+      case 'Stasiun':
+        icon = Icons.train;
+        color = Colors.indigo.shade300;
+        break;
+      case 'Bandara & Pelabuhan':
+        icon = Icons.flight;
+        color = Colors.lightBlue;
+        break;
+      case 'SPBU':
+        icon = Icons.local_gas_station;
+        color = Colors.red.shade400;
+        break;
+      case 'Balai Desa / Pemerintahan':
+        icon = Icons.account_balance;
+        color = Colors.blueGrey;
+        break;
+      case 'Makam & Ziarah':
+        icon = Icons.park;
+        color = Colors.grey.shade600;
+        break;
+      case 'Lapangan & Gedung Acara':
+        icon = Icons.place;
+        color = Colors.blue;
+        break;
+      case 'Jalan & Perjalanan':
+        icon = Icons.route;
+        color = Colors.grey;
+        break;
+      case 'Taman & Alam':
+        icon = Icons.nature;
+        color = Colors.green;
+        break;
+      default:
+        icon = Icons.location_on;
+        color = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
       ),
+      child: Icon(icon, color: color, size: 24),
     );
   }
 }

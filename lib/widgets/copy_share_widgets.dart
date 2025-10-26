@@ -29,7 +29,7 @@ class CopyShareWidgets {
         ),
       );
     } catch (e) {
-      ServiceLogger.error('Failed to show copy/share dialog', error: e);
+      debugPrint('ERROR: Failed to show copy/share dialog: $e');
       ErrorHandler.handleError(context, e);
     }
   }
@@ -51,7 +51,7 @@ class CopyShareWidgets {
             onCopied();
           }
         } catch (e) {
-          ServiceLogger.error('Failed to copy text', error: e);
+          debugPrint('ERROR: Failed to copy text: $e');
         }
       },
     );
@@ -74,7 +74,7 @@ class CopyShareWidgets {
             onShared();
           }
         } catch (e) {
-          ServiceLogger.error('Failed to share text', error: e);
+          debugPrint('ERROR: Failed to share text: $e');
         }
       },
     );
@@ -149,7 +149,9 @@ Reference: ${prayer.reference}
     return '''
 ${location.name}
 
-Type: ${location.type}
+Category: ${location.locationCategory}
+SubCategory: ${location.locationSubCategory}
+Type: ${location.realSub}
 Address: ${location.address ?? 'N/A'}
 Coordinates: ${location.latitude}, ${location.longitude}
 Radius: ${location.radius}m
@@ -305,7 +307,9 @@ class _CopyShareBottomSheetState extends State<CopyShareBottomSheet> {
           ),
         ),
         const SizedBox(height: 10),
-        Text('Type: ${location.type}'),
+        Text('Category: ${location.locationCategory}'),
+        Text('SubCategory: ${location.locationSubCategory}'),
+        Text('Type: ${location.realSub}'),
         Text('Address: ${location.address ?? 'N/A'}'),
         Text('Coordinates: ${location.latitude}, ${location.longitude}'),
         Text('Radius: ${location.radius}m'),
@@ -362,7 +366,7 @@ class _CopyShareBottomSheetState extends State<CopyShareBottomSheet> {
         }
       }
     } catch (e) {
-      ServiceLogger.error('Failed to copy to clipboard', error: e);
+      debugPrint('ERROR: Failed to copy to clipboard: $e');
       if (mounted) {
         ErrorHandler.handleError(context, e);
       }
@@ -393,7 +397,7 @@ class _CopyShareBottomSheetState extends State<CopyShareBottomSheet> {
 
       await CopyShareService.shareText(text, subject: subject);
     } catch (e) {
-      ServiceLogger.error('Failed to share content', error: e);
+      debugPrint('ERROR: Failed to share content: $e');
       if (mounted) {
         ErrorHandler.handleError(context, e);
       }
@@ -416,7 +420,7 @@ class _CopyShareBottomSheetState extends State<CopyShareBottomSheet> {
         );
       }
     } catch (e) {
-      ServiceLogger.error('Failed to export to JSON', error: e);
+      debugPrint('ERROR: Failed to export to JSON: $e');
       if (mounted) {
         ErrorHandler.handleError(context, e);
       }
@@ -439,7 +443,7 @@ class _CopyShareBottomSheetState extends State<CopyShareBottomSheet> {
         );
       }
     } catch (e) {
-      ServiceLogger.error('Failed to export to PDF', error: e);
+      debugPrint('ERROR: Failed to export to PDF: $e');
       if (mounted) {
         ErrorHandler.handleError(context, e);
       }

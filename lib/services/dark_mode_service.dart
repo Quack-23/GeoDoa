@@ -37,7 +37,8 @@ class DarkModeService {
       // Check system dark mode
       await _checkSystemDarkMode();
 
-      debugPrint('INFO: Dark mode service initialized - isDark: $_isDarkMode, isSystem: $_isSystemDarkMode, contrast: $_contrastRatio');
+      debugPrint(
+          'INFO: Dark mode service initialized - isDark: $_isDarkMode, isSystem: $_isSystemDarkMode, contrast: $_contrastRatio');
     } catch (e) {
       debugPrint('ERROR: Failed to initialize dark mode service: $e');
     }
@@ -152,13 +153,15 @@ class DarkModeService {
     if (_isSystemDarkMode) {
       _isDarkMode = _isSystemDarkMode;
     }
-    debugPrint('INFO: System dark mode ${isSystemDark ? 'enabled' : 'disabled'}');
+    debugPrint(
+        'INFO: System dark mode ${isSystemDark ? 'enabled' : 'disabled'}');
   }
 
   /// Set high contrast mode
   void setHighContrast(bool isHighContrast) {
     _isHighContrast = isHighContrast;
-    debugPrint('INFO: High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}');
+    debugPrint(
+        'INFO: High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}');
   }
 
   /// Set contrast ratio
@@ -215,7 +218,7 @@ class DarkModeService {
 
   /// Get high contrast color
   Color _getHighContrastColor(Color baseColor, Color backgroundColor) {
-    final baseLuminance = _getLuminance(baseColor);
+    // Calculate luminance for both colors
     final backgroundLuminance = _getLuminance(backgroundColor);
 
     // Return black or white based on background

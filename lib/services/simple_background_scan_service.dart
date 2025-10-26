@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/location_model.dart';
 import '../services/database_service.dart';
-import '../services/notification_service.dart';
 import '../services/location_scan_service.dart';
-// ActivityStateService removed - anti-spam logic simplified
 import '../services/scan_statistics_service.dart';
+import '../utils/notification_throttler.dart';
+import '../utils/notification_batcher.dart';
+import '../utils/location_count_cache.dart';
 
 class SimpleBackgroundScanService {
   static final SimpleBackgroundScanService _instance =
@@ -18,8 +20,14 @@ class SimpleBackgroundScanService {
   bool _isBackgroundScanActive = false;
   Position? _lastKnownPosition;
   DateTime? _lastBackgroundScanTime;
+  DateTime? _nextBackgroundScanTime;
   int _scanIntervalMinutes = 5;
   double _scanRadiusMeters = 50.0;
+  int _lastScanLocationsFound = 0;
+
+  // ✅ ADD: Stream controller untuk status updates (fix lag issue #1)
+  final _statusController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get statusStream => _statusController.stream;
 
   // Getters
   bool get isBackgroundScanActive => _isBackgroundScanActive;
@@ -47,14 +55,26 @@ class SimpleBackgroundScanService {
         desiredAccuracy: LocationAccuracy.medium,
       );
 
+      // ✅ FIX: Perform IMMEDIATE first scan
+      debugPrint('🚀 Performing immediate first scan...');
+      await _performBackgroundScan();
+
+      // ✅ Set next scan time
+      _nextBackgroundScanTime =
+          DateTime.now().add(Duration(minutes: _scanIntervalMinutes));
+      _emitStatus();
+
       // Start periodic background scan with configured interval
       _backgroundScanTimer =
           Timer.periodic(Duration(minutes: _scanIntervalMinutes), (timer) {
         _performBackgroundScan();
+        _nextBackgroundScanTime =
+            DateTime.now().add(Duration(minutes: _scanIntervalMinutes));
+        _emitStatus();
       });
 
       debugPrint(
-          'Simple background scanning started with interval: $_scanIntervalMinutes minutes, radius: $_scanRadiusMeters meters');
+          '✅ Background scanning started with interval: $_scanIntervalMinutes minutes, radius: $_scanRadiusMeters meters');
     } catch (e) {
       debugPrint('Error starting background scan: $e');
       _isBackgroundScanActive = false;
@@ -66,6 +86,8 @@ class SimpleBackgroundScanService {
     _backgroundScanTimer?.cancel();
     _backgroundScanTimer = null;
     _isBackgroundScanActive = false;
+    _nextBackgroundScanTime = null;
+    _emitStatus();
     debugPrint('Simple background scanning stopped');
   }
 
@@ -97,8 +119,12 @@ class SimpleBackgroundScanService {
 
         if (distance < 50) {
           debugPrint(
-              'Position not changed significantly, skipping background scan');
+              '⏭️ Position not changed significantly ($distance m), skipping background scan');
+          _lastBackgroundScanTime = DateTime.now();
+          _emitStatus();
           return;
+        } else {
+          debugPrint('📍 Position changed: ${distance.toInt()} meters');
         }
       }
 
@@ -117,12 +143,21 @@ class SimpleBackgroundScanService {
 
       if (scannedLocations.isNotEmpty) {
         // Save locations to database first
+        int insertedCount = 0;
         for (final location in scannedLocations) {
           try {
             await DatabaseService.instance.insertLocation(location);
+            insertedCount++;
           } catch (e) {
             // Skip if already exists
           }
+        }
+
+        // ✅ Invalidate cache if any location was inserted
+        if (insertedCount > 0) {
+          LocationCountCache.invalidate();
+          debugPrint(
+              '✅ Cache invalidated after inserting $insertedCount locations');
         }
 
         // Track scan statistics
@@ -131,45 +166,72 @@ class SimpleBackgroundScanService {
         // Record visited locations for statistics and history
         for (final location in scannedLocations) {
           await ScanStatisticsService.instance
-              .recordVisitedLocation(location.type);
+              .recordVisitedLocation(location.locationSubCategory);
           await ScanStatisticsService.instance.addScanHistory(
             locationName: location.name,
-            locationType: location.type,
+            locationType: location.locationSubCategory,
             scanSource: 'background',
           );
         }
 
-        // Check if we can trigger notification (anti-spam) for each location
+        // ✅ Smart notification with throttling & batching
+        final newLocations = <LocationModel>[];
+
+        // Filter locations that can be notified (not in cooldown, not in quiet hours)
         for (final location in scannedLocations) {
-          final locationId = location.id?.toString() ?? 'unknown';
-          // Simple anti-spam: always allow for now
-          final canNotify = true;
+          final canNotify =
+              await NotificationThrottler.instance.canShowNotification(
+            locationName: location.name,
+            locationType: location.locationSubCategory,
+            cooldownMinutes: 30, // 30 minutes cooldown
+          );
+
           if (canNotify) {
-            // Show notification with location details
-            await NotificationService.instance
-                .showNearbyLocationNotification([location]);
-
-            // Record notification sent
-            // TODO: Implement simple SharedPreferences-based tracking if needed
-            debugPrint('Background notification sent for ${location.name}');
-
-            debugPrint(
-                'Background scan notification sent for location: ${location.name}');
+            newLocations.add(location);
           } else {
             debugPrint(
-                'Background scan notification blocked by anti-spam for location: ${location.name}');
+                '⏭️ Skipping notification for ${location.name} (cooldown or quiet hours)');
           }
         }
 
+        // Show batch notification for all new locations
+        if (newLocations.isNotEmpty) {
+          // Filter by priority (max 10 locations)
+          final priorityLocations = NotificationBatcher.filterByPriority(
+            newLocations,
+            maxLocations: 10,
+          );
+
+          // Show batch notification
+          await NotificationBatcher.showBatchNotification(priorityLocations);
+
+          // Record all notifications
+          for (final location in priorityLocations) {
+            await NotificationThrottler.instance.recordNotification(
+              locationName: location.name,
+              locationType: location.locationSubCategory,
+            );
+          }
+
+          debugPrint(
+              '✅ Batch notification sent for ${priorityLocations.length} new locations');
+        } else {
+          debugPrint(
+              'ℹ️ No new locations to notify (all in cooldown or quiet hours)');
+        }
+
+        _lastScanLocationsFound = scannedLocations.length;
         debugPrint(
-            'Background scan found ${scannedLocations.length} locations');
+            '✅ Background scan found ${scannedLocations.length} locations');
       } else {
+        _lastScanLocationsFound = 0;
         debugPrint(
-            'Background scan found no locations within $_scanRadiusMeters meters');
+            '⚠️ Background scan found no locations within $_scanRadiusMeters meters');
       }
 
       _lastBackgroundScanTime = DateTime.now();
-      debugPrint('Simple background scan completed');
+      _emitStatus();
+      debugPrint('✅ Background scan completed');
     } catch (e) {
       debugPrint('Error in background scan: $e');
     }
@@ -179,8 +241,30 @@ class SimpleBackgroundScanService {
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _scanIntervalMinutes = prefs.getInt('scan_interval_minutes') ?? 5;
+
+      // ✅ Load scan mode dari onboarding (realtime/balanced/powersave)
+      final scanMode = prefs.getString('scan_mode') ?? 'balanced';
+
+      // Convert scan mode ke interval
+      switch (scanMode) {
+        case 'realtime':
+          _scanIntervalMinutes = 5; // Real-time: scan tiap 5 menit
+          break;
+        case 'balanced':
+          _scanIntervalMinutes = 15; // Balanced: scan tiap 15 menit (DEFAULT)
+          break;
+        case 'powersave':
+          _scanIntervalMinutes = 30; // Power save: scan tiap 30 menit
+          break;
+        default:
+          _scanIntervalMinutes = 15; // Fallback ke balanced
+      }
+
+      // Radius bisa di-override dari settings (opsional)
       _scanRadiusMeters = prefs.getDouble('scan_radius') ?? 50.0;
+
+      debugPrint(
+          '📋 Scan mode: $scanMode, interval: $_scanIntervalMinutes min, radius: $_scanRadiusMeters m');
     } catch (e) {
       debugPrint('Error loading background scan settings: $e');
     }
@@ -208,11 +292,59 @@ class SimpleBackgroundScanService {
     }
   }
 
-  // Get background scan status
-  Map<String, dynamic> getBackgroundScanStatus() {
+  /// Update scan mode (realtime/balanced/powersave)
+  /// Akan restart background scan dengan interval baru
+  Future<void> updateScanMode(String scanMode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('scan_mode', scanMode);
+
+      // Convert ke interval
+      int newInterval;
+      switch (scanMode) {
+        case 'realtime':
+          newInterval = 5;
+          break;
+        case 'balanced':
+          newInterval = 15;
+          break;
+        case 'powersave':
+          newInterval = 30;
+          break;
+        default:
+          newInterval = 15;
+      }
+
+      _scanIntervalMinutes = newInterval;
+
+      // Restart background scan jika sedang aktif
+      if (_isBackgroundScanActive) {
+        stopBackgroundScanning();
+        await startBackgroundScanning();
+      }
+
+      debugPrint(
+          '🔄 Scan mode updated to: $scanMode (interval: $newInterval min)');
+    } catch (e) {
+      debugPrint('Error updating scan mode: $e');
+    }
+  }
+
+  // ✅ Emit status ke stream (internal helper)
+  void _emitStatus() {
+    final status = _buildStatusMap();
+    _statusController.add(status);
+  }
+
+  // ✅ Build status map
+  Map<String, dynamic> _buildStatusMap() {
     return {
       'isActive': _isBackgroundScanActive,
       'lastScanTime': _lastBackgroundScanTime?.toIso8601String(),
+      'nextScanTime': _nextBackgroundScanTime?.toIso8601String(),
+      'scanIntervalMinutes': _scanIntervalMinutes,
+      'scanRadiusMeters': _scanRadiusMeters,
+      'lastScanLocationsFound': _lastScanLocationsFound,
       'lastPosition': _lastKnownPosition != null
           ? {
               'latitude': _lastKnownPosition!.latitude,
@@ -220,5 +352,19 @@ class SimpleBackgroundScanService {
             }
           : null,
     };
+  }
+
+  // Get background scan status
+  Map<String, dynamic> getBackgroundScanStatus() {
+    final status = _buildStatusMap();
+    // ✅ Emit status ke stream untuk real-time updates
+    _statusController.add(status);
+    return status;
+  }
+
+  // ✅ Dispose method untuk cleanup
+  void dispose() {
+    _statusController.close();
+    _backgroundScanTimer?.cancel();
   }
 }

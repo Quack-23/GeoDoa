@@ -34,7 +34,8 @@ class LoadingService extends ChangeNotifier {
     _loadingMessages[key] = message ?? 'Memuat...';
     _loadingProgress[key] = progress ?? 0.0;
 
-    debugPrint('DEBUG: Started loading: $key - message: $message, progress: $progress');
+    debugPrint(
+        'DEBUG: Started loading: $key - message: $message, progress: $progress');
 
     notifyListeners();
   }

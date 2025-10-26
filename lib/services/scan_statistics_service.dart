@@ -209,6 +209,35 @@ class ScanStatisticsService {
     }
   }
 
+  // ✅ Get jumlah lokasi UNIK yang pernah dikunjungi user (dari scan history)
+  Future<int> getUniqueVisitedLocationsCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final historyJson = prefs.getString('scan_history');
+
+      if (historyJson == null) {
+        return 0;
+      }
+
+      final List<dynamic> decoded = jsonDecode(historyJson);
+      List<ScanHistoryItem> history =
+          decoded.map((item) => ScanHistoryItem.fromMap(item)).toList();
+
+      // Hitung lokasi unik berdasarkan locationName
+      Set<String> uniqueLocations = {};
+      for (var item in history) {
+        if (item.locationName.isNotEmpty) {
+          uniqueLocations.add(item.locationName);
+        }
+      }
+
+      return uniqueLocations.length;
+    } catch (e) {
+      debugPrint('Error getting unique visited locations count: $e');
+      return 0;
+    }
+  }
+
   // Reset statistics
   Future<void> resetStatistics() async {
     try {

@@ -4,7 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
-// ActivityStateService removed - anti-spam logic simplified
+import '../utils/notification_throttler.dart';
 
 class NotificationService extends ChangeNotifier {
   static final NotificationService _instance = NotificationService._internal();
@@ -211,13 +211,16 @@ class NotificationService extends ChangeNotifier {
       // Only show notification for the closest location
       final closestLocation = locations.first;
 
-      // Simple anti-spam: always allow for now
-      // TODO: Implement simple SharedPreferences-based anti-spam if needed
-      final canNotify = true;
+      // ✅ Check throttling (cooldown & quiet hours)
+      final canNotify =
+          await NotificationThrottler.instance.canShowNotification(
+        locationName: closestLocation.name,
+        locationType: closestLocation.locationSubCategory,
+        cooldownMinutes: 30,
+      );
 
       if (!canNotify) {
-        debugPrint(
-            'Notification blocked by anti-spam for: ${closestLocation.name}');
+        debugPrint('Notification throttled for: ${closestLocation.name}');
         return;
       }
 
@@ -226,7 +229,7 @@ class NotificationService extends ChangeNotifier {
 
       final String title = '📍 Anda berada di sekitar ${closestLocation.name}';
       final String body = 'Baca doa dulu yuk!';
-      final String payload = 'prayer:${closestLocation.type}';
+      final String payload = 'prayer:${closestLocation.locationSubCategory}';
 
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
@@ -269,9 +272,14 @@ class NotificationService extends ChangeNotifier {
         payload: payload,
       );
 
-      // Record notification sent for anti-spam
-      // TODO: Implement simple SharedPreferences-based tracking if needed
-      debugPrint('✅ Nearby location notification shown successfully for: ${closestLocation.name}');
+      // ✅ Record notification sent (for throttling)
+      await NotificationThrottler.instance.recordNotification(
+        locationName: closestLocation.name,
+        locationType: closestLocation.locationSubCategory,
+      );
+
+      debugPrint(
+          '✅ Nearby location notification shown successfully for: ${closestLocation.name}');
     } catch (e) {
       debugPrint('❌ Error showing nearby location notification: $e');
     }

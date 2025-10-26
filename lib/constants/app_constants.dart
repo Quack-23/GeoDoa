@@ -14,7 +14,7 @@ class AppConstants {
   // DATABASE
   // ==========================================
   static const String databaseName = 'doa_maps.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 3; // v3: hierarchical tagging system
   static const String locationsTable = 'locations';
   static const String prayersTable = 'prayers';
 
@@ -89,22 +89,408 @@ class AppConstants {
   static const String successScanCompleted = 'Scan lokasi selesai';
 
   // ==========================================
-  // LOCATION TYPES
+  // HIERARCHICAL LOCATION TAGGING SYSTEM
+  // Structure: Category → SubCategory → RealSub → Tags
   // ==========================================
-  static const List<String> supportedLocationTypes = [
-    'masjid',
-    'sekolah',
-    'rumah_sakit',
-    'tempat_kerja',
-    'pasar',
-    'restoran',
-    'terminal',
-    'stasiun',
-    'bandara',
-    'rumah',
-    'kantor',
-    'cafe',
+  static const List<Map<String, dynamic>> locationHierarchy = [
+    {
+      "category": "Tempat Ibadah",
+      "sub_categories": [
+        {
+          "name": "Masjid",
+          "real_sub": [
+            "masjid",
+            "masjid_agung",
+            "masjid_jami",
+            "langgar",
+            "surau"
+          ],
+          "tags": ["ibadah", "shalat", "jumatan", "mengaji", "zikir", "doa"],
+          "examples": ["Masjid Istiqlal", "Masjid Agung Jawa Tengah"]
+        },
+        {
+          "name": "Musholla",
+          "real_sub": [
+            "musholla",
+            "mushola",
+            "musala",
+            "musholla_kantor",
+            "musholla_mall",
+            "musholla_sekolah"
+          ],
+          "tags": ["ibadah", "shalat", "doa_singkat"],
+          "examples": ["Musholla Rest Area", "Musholla Kampus UI"]
+        },
+        {
+          "name": "Pesantren",
+          "real_sub": [
+            "pesantren",
+            "pondok_pesantren",
+            "ponpes",
+            "asrama_santri"
+          ],
+          "tags": ["belajar_agama", "ngaji", "kajian", "ibadah"],
+          "examples": ["Pondok Pesantren Gontor", "Ponpes Daarul Quran"]
+        }
+      ]
+    },
+    {
+      "category": "Pendidikan",
+      "sub_categories": [
+        {
+          "name": "Sekolah",
+          "real_sub": [
+            "sd",
+            "smp",
+            "sma",
+            "smk",
+            "madrasah",
+            "mts",
+            "ma",
+            "mi"
+          ],
+          "tags": ["pendidikan", "belajar", "murid", "guru"],
+          "examples": ["SMA Negeri 1 Jakarta", "Madrasah Aliyah Al-Hidayah"]
+        },
+        {
+          "name": "Universitas",
+          "real_sub": [
+            "kampus",
+            "universitas",
+            "institut",
+            "sekolah_tinggi",
+            "politeknik",
+            "akademi"
+          ],
+          "tags": ["mahasiswa", "dosen", "pendidikan", "ilmu"],
+          "examples": ["Universitas Indonesia", "Institut Teknologi Bandung"]
+        },
+        {
+          "name": "Kursus & Pelatihan",
+          "real_sub": [
+            "bimbel",
+            "kursus",
+            "les",
+            "pelatihan",
+            "kursus_mengemudi"
+          ],
+          "tags": ["belajar", "ilmu", "skill", "training"],
+          "examples": [
+            "Bimbel Ganesha Operation",
+            "Kursus Mengemudi Safety Drive"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Kesehatan",
+      "sub_categories": [
+        {
+          "name": "Rumah Sakit",
+          "real_sub": [
+            "rumah_sakit",
+            "rsu",
+            "rsud",
+            "rsia",
+            "rs_swasta",
+            "rs_islam"
+          ],
+          "tags": [
+            "kesehatan",
+            "sakit",
+            "kesembuhan",
+            "dokter",
+            "doa_kesembuhan"
+          ],
+          "examples": ["RSUP Dr. Sardjito", "RS Islam Jakarta"]
+        },
+        {
+          "name": "Klinik",
+          "real_sub": [
+            "klinik_umum",
+            "klinik_gigi",
+            "klinik_bersalin",
+            "klinik_pratama"
+          ],
+          "tags": ["perawatan", "kesehatan", "pengobatan"],
+          "examples": ["Klinik Medika", "Klinik Utama Harapan Sehat"]
+        },
+        {
+          "name": "Apotek",
+          "real_sub": ["apotek", "apotik", "farmasi", "toko_obat"],
+          "tags": ["obat", "pengobatan", "farmasi"],
+          "examples": ["Apotek K-24", "Apotek Kimia Farma"]
+        }
+      ]
+    },
+    {
+      "category": "Tempat Tinggal",
+      "sub_categories": [
+        {
+          "name": "Rumah",
+          "real_sub": ["rumah", "perumahan", "rumah_pribadi", "rumah_keluarga"],
+          "tags": ["keluarga", "tempat_tinggal", "kedamaian", "rezeki"],
+          "examples": ["Perumahan Griya Asri", "Rumah Pak Ahmad"]
+        },
+        {
+          "name": "Kos / Asrama",
+          "real_sub": [
+            "kos",
+            "kos_putra",
+            "kos_putri",
+            "asrama",
+            "asrama_mahasiswa",
+            "pondok"
+          ],
+          "tags": ["tinggal", "istirahat", "doa_perlindungan"],
+          "examples": ["Kos Putri Mawar", "Asrama UI"]
+        },
+        {
+          "name": "Kontrakan",
+          "real_sub": ["kontrakan", "sewa_rumah", "rumah_kontrakan", "indekos"],
+          "tags": ["tempat_tinggal", "rezeki", "perlindungan"],
+          "examples": ["Kontrakan Pak Haji", "Sewa Rumah Harian"]
+        }
+      ]
+    },
+    {
+      "category": "Tempat Kerja & Usaha",
+      "sub_categories": [
+        {
+          "name": "Kantor",
+          "real_sub": [
+            "kantor",
+            "kantor_swasta",
+            "kantor_pemerintah",
+            "coworking_space"
+          ],
+          "tags": ["kerja", "profesi", "rezeki", "doa_kerja"],
+          "examples": ["Kantor Kecamatan", "WeWork Jakarta"]
+        },
+        {
+          "name": "Toko & Bisnis",
+          "real_sub": ["toko", "warung", "minimarket", "ritel", "kedai"],
+          "tags": ["usaha", "jualan", "doa_rezeki", "bisnis"],
+          "examples": ["Alfamart", "Warung Bu Siti"]
+        },
+        {
+          "name": "Bengkel & Pabrik",
+          "real_sub": [
+            "bengkel",
+            "bengkel_motor",
+            "bengkel_mobil",
+            "pabrik",
+            "gudang",
+            "workshop"
+          ],
+          "tags": ["kerja", "usaha", "produksi"],
+          "examples": ["Bengkel Sinar Jaya", "Pabrik Tekstil Bandung"]
+        }
+      ]
+    },
+    {
+      "category": "Makan, Minum & Rekreasi",
+      "sub_categories": [
+        {
+          "name": "Restoran / Rumah Makan",
+          "real_sub": [
+            "restaurant",
+            "restoran",
+            "rumah_makan",
+            "warteg",
+            "warmindo",
+            "angkringan",
+            "kedai",
+            "cafe",
+            "coffee_shop"
+          ],
+          "tags": ["makan", "minum", "doa_makan", "rezeki_halal"],
+          "examples": ["Warteg Bahari", "Warmindo Barokah", "Kopi Kenangan"]
+        },
+        {
+          "name": "Pasar & Mall",
+          "real_sub": [
+            "pasar",
+            "pasar_tradisional",
+            "pasar_modern",
+            "mall",
+            "minimarket",
+            "plaza"
+          ],
+          "tags": ["jual_beli", "perdagangan", "doa_rezeki"],
+          "examples": ["Pasar Senen", "Mall Kelapa Gading"]
+        },
+        {
+          "name": "Tempat Wisata",
+          "real_sub": [
+            "wisata",
+            "taman",
+            "pantai",
+            "gunung",
+            "desa_wisata",
+            "curug"
+          ],
+          "tags": ["rekreasi", "santai", "doa_perjalanan"],
+          "examples": ["Pantai Parangtritis", "Gunung Bromo"]
+        }
+      ]
+    },
+    {
+      "category": "Transportasi",
+      "sub_categories": [
+        {
+          "name": "Terminal",
+          "real_sub": ["terminal_bus", "pool_bus", "angkot_station"],
+          "tags": ["perjalanan", "safar", "doa_safar"],
+          "examples": ["Terminal Kampung Rambutan"]
+        },
+        {
+          "name": "Stasiun",
+          "real_sub": ["stasiun", "stasiun_kereta", "commuter_line"],
+          "tags": ["transportasi", "kereta", "doa_perjalanan"],
+          "examples": ["Stasiun Gambir", "Stasiun Bogor"]
+        },
+        {
+          "name": "Bandara & Pelabuhan",
+          "real_sub": ["bandara", "airport", "pelabuhan", "dermaga", "port"],
+          "tags": ["safar", "doa_safar", "keberangkatan"],
+          "examples": ["Bandara Soekarno-Hatta", "Pelabuhan Merak"]
+        },
+        {
+          "name": "SPBU",
+          "real_sub": ["spbu", "pertamina", "shell", "bp", "total"],
+          "tags": ["perjalanan", "bensin", "mobilitas"],
+          "examples": ["SPBU Pertamina KM 19"]
+        }
+      ]
+    },
+    {
+      "category": "Tempat Umum & Sosial",
+      "sub_categories": [
+        {
+          "name": "Balai Desa / Pemerintahan",
+          "real_sub": [
+            "balai_desa",
+            "kantor_desa",
+            "kelurahan",
+            "kecamatan",
+            "rt",
+            "rw"
+          ],
+          "tags": ["masyarakat", "doa_kebersamaan"],
+          "examples": ["Kantor Kelurahan Sukamaju"]
+        },
+        {
+          "name": "Makam & Ziarah",
+          "real_sub": ["makam", "kuburan", "pemakaman", "tpu", "makam_wali"],
+          "tags": ["ziarah", "doa_arwah", "doa_perlindungan"],
+          "examples": ["Makam Sunan Kalijaga", "TPU Karet Bivak"]
+        },
+        {
+          "name": "Lapangan & Gedung Acara",
+          "real_sub": [
+            "lapangan",
+            "stadion",
+            "alun_alun",
+            "gedung_serbaguna",
+            "gedung_nikah"
+          ],
+          "tags": ["event", "keramaian", "doa_perlindungan"],
+          "examples": ["Alun-Alun Bandung", "Gedung Serbaguna DKI"]
+        }
+      ]
+    },
+    {
+      "category": "Alam & Ruang Terbuka",
+      "sub_categories": [
+        {
+          "name": "Jalan & Perjalanan",
+          "real_sub": ["jalan", "jalan_raya", "tol", "gang", "jalan_desa"],
+          "tags": ["safar", "perjalanan", "doa_safar", "keselamatan"],
+          "examples": ["Tol Trans Jawa", "Jalan Malioboro"]
+        },
+        {
+          "name": "Taman & Alam",
+          "real_sub": [
+            "taman",
+            "taman_kota",
+            "hutan",
+            "gunung",
+            "danau",
+            "pantai"
+          ],
+          "tags": ["alam", "ketenangan", "doa_perlindungan"],
+          "examples": ["Taman Menteng", "Hutan Pinus Mangunan"]
+        }
+      ]
+    }
   ];
+
+  // ==========================================
+  // HELPER METHODS untuk Akses Hierarki
+  // ==========================================
+
+  /// Get semua category names
+  static List<String> get allCategories {
+    return locationHierarchy.map((cat) => cat['category'] as String).toList();
+  }
+
+  /// Get subcategories berdasarkan category
+  static List<Map<String, dynamic>> getSubCategories(String category) {
+    final cat = locationHierarchy.firstWhere(
+      (c) => c['category'] == category,
+      orElse: () => {'sub_categories': []},
+    );
+    return List<Map<String, dynamic>>.from(cat['sub_categories'] ?? []);
+  }
+
+  /// Get real_sub berdasarkan category & subcategory
+  static List<String> getRealSubs(String category, String subCategory) {
+    final subCats = getSubCategories(category);
+    final subCat = subCats.firstWhere(
+      (sc) => sc['name'] == subCategory,
+      orElse: () => {'real_sub': []},
+    );
+    return List<String>.from(subCat['real_sub'] ?? []);
+  }
+
+  /// Get tags berdasarkan category & subcategory
+  static List<String> getTags(String category, String subCategory) {
+    final subCats = getSubCategories(category);
+    final subCat = subCats.firstWhere(
+      (sc) => sc['name'] == subCategory,
+      orElse: () => {'tags': []},
+    );
+    return List<String>.from(subCat['tags'] ?? []);
+  }
+
+  /// Get examples berdasarkan category & subcategory
+  static List<String> getExamples(String category, String subCategory) {
+    final subCats = getSubCategories(category);
+    final subCat = subCats.firstWhere(
+      (sc) => sc['name'] == subCategory,
+      orElse: () => {'examples': []},
+    );
+    return List<String>.from(subCat['examples'] ?? []);
+  }
+
+  /// Cari SubCategory berdasarkan RealSub (untuk backward compatibility)
+  static Map<String, String>? findCategoryByRealSub(String realSub) {
+    for (var category in locationHierarchy) {
+      final subCategories =
+          List<Map<String, dynamic>>.from(category['sub_categories']);
+      for (var subCat in subCategories) {
+        final realSubs = List<String>.from(subCat['real_sub']);
+        if (realSubs.contains(realSub.toLowerCase())) {
+          return {
+            'category': category['category'] as String,
+            'subCategory': subCat['name'] as String,
+          };
+        }
+      }
+    }
+    return null;
+  }
 
   // ==========================================
   // PRAYER CATEGORIES

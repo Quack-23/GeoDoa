@@ -20,13 +20,10 @@ class CopyShareService {
   static Future<bool> copyToClipboard(String text, {String? label}) async {
     try {
       await Clipboard.setData(ClipboardData(text: text));
-      ServiceLogger.info('Text copied to clipboard', data: {
-        'text_length': text.length,
-        'label': label,
-      });
+      debugPrint('Text copied to clipboard (${text.length} chars)');
       return true;
     } catch (e) {
-      ServiceLogger.error('Failed to copy to clipboard', error: e);
+      debugPrint('ERROR: Failed to copy to clipboard: $e');
       return false;
     }
   }
@@ -38,13 +35,10 @@ class CopyShareService {
         text,
         subject: subject,
       );
-      ServiceLogger.info('Text shared', data: {
-        'text_length': text.length,
-        'subject': subject,
-      });
+      debugPrint('Text shared (${text.length} chars)');
       return true;
     } catch (e) {
-      ServiceLogger.error('Failed to share text', error: e);
+      debugPrint('ERROR: Failed to share text: $e');
       return false;
     }
   }
@@ -56,13 +50,10 @@ class CopyShareService {
         [XFile(filePath)],
         text: text,
       );
-      ServiceLogger.info('File shared', data: {
-        'file_path': filePath,
-        'text': text,
-      });
+      debugPrint('File shared: $filePath');
       return true;
     } catch (e) {
-      ServiceLogger.error('Failed to share file', error: e);
+      debugPrint('ERROR: Failed to share file: $e');
       return false;
     }
   }
@@ -86,14 +77,12 @@ class CopyShareService {
       final file = File('${directory.path}/$fileName');
       await file.writeAsString(jsonString);
 
-      ServiceLogger.info('Locations exported to JSON', data: {
-        'file_path': file.path,
-        'locations_count': locations.length,
-      });
+      debugPrint(
+          'Locations exported to JSON: ${file.path} (${locations.length} locations)');
 
       return file.path;
     } catch (e) {
-      ServiceLogger.error('Failed to export locations to JSON', error: e);
+      debugPrint('ERROR: Failed to export locations to JSON: $e');
       return null;
     }
   }
@@ -116,14 +105,12 @@ class CopyShareService {
       final file = File('${directory.path}/$fileName');
       await file.writeAsString(jsonString);
 
-      ServiceLogger.info('Prayers exported to JSON', data: {
-        'file_path': file.path,
-        'prayers_count': prayers.length,
-      });
+      debugPrint(
+          'Prayers exported to JSON: ${file.path} (${prayers.length} prayers)');
 
       return file.path;
     } catch (e) {
-      ServiceLogger.error('Failed to export prayers to JSON', error: e);
+      debugPrint('ERROR: Failed to export prayers to JSON: $e');
       return null;
     }
   }
@@ -174,7 +161,10 @@ class CopyShareService {
                               style: pw.TextStyle(
                                   fontSize: 14, fontWeight: pw.FontWeight.bold),
                             ),
-                            pw.Text('Type: ${location.type}'),
+                            pw.Text('Category: ${location.locationCategory}'),
+                            pw.Text(
+                                'SubCategory: ${location.locationSubCategory}'),
+                            pw.Text('Type: ${location.realSub}'),
                             pw.Text('Address: ${location.address ?? 'N/A'}'),
                             pw.Text(
                                 'Coordinates: ${location.latitude}, ${location.longitude}'),
@@ -225,15 +215,12 @@ class CopyShareService {
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(await pdf.save());
 
-      ServiceLogger.info('Data exported to PDF', data: {
-        'file_path': file.path,
-        'locations_count': locations.length,
-        'prayers_count': prayers.length,
-      });
+      debugPrint(
+          'Data exported to PDF: ${file.path} (${locations.length} locations, ${prayers.length} prayers)');
 
       return file.path;
     } catch (e) {
-      ServiceLogger.error('Failed to export to PDF', error: e);
+      debugPrint('ERROR: Failed to export to PDF: $e');
       return null;
     }
   }
@@ -251,18 +238,14 @@ class CopyShareService {
         final jsonString = await file.readAsString();
         final data = jsonDecode(jsonString) as Map<String, dynamic>;
 
-        ServiceLogger.info('Data imported from JSON', data: {
-          'file_path': file.path,
-          'export_type': data['export_type'],
-          'export_date': data['export_date'],
-        });
+        debugPrint('Data imported from JSON: ${file.path}');
 
         return data;
       }
 
       return null;
     } catch (e) {
-      ServiceLogger.error('Failed to import from JSON', error: e);
+      debugPrint('ERROR: Failed to import from JSON: $e');
       return null;
     }
   }
@@ -287,7 +270,7 @@ Reference: ${prayer.reference}
 
       return await copyToClipboard(text, label: 'Prayer: ${prayer.title}');
     } catch (e) {
-      ServiceLogger.error('Failed to copy prayer', error: e);
+      debugPrint('ERROR: Failed to copy prayer: $e');
       return false;
     }
   }
@@ -312,7 +295,7 @@ Reference: ${prayer.reference}
 
       return await shareText(text, subject: 'Doa: ${prayer.title}');
     } catch (e) {
-      ServiceLogger.error('Failed to share prayer', error: e);
+      debugPrint('ERROR: Failed to share prayer: $e');
       return false;
     }
   }
@@ -323,7 +306,9 @@ Reference: ${prayer.reference}
       final text = '''
 ${location.name}
 
-Type: ${location.type}
+Category: ${location.locationCategory}
+SubCategory: ${location.locationSubCategory}
+Type: ${location.realSub}
 Address: ${location.address ?? 'N/A'}
 Coordinates: ${location.latitude}, ${location.longitude}
 Radius: ${location.radius}m
@@ -331,7 +316,7 @@ Radius: ${location.radius}m
 
       return await copyToClipboard(text, label: 'Location: ${location.name}');
     } catch (e) {
-      ServiceLogger.error('Failed to copy location', error: e);
+      debugPrint('ERROR: Failed to copy location: $e');
       return false;
     }
   }
@@ -342,7 +327,9 @@ Radius: ${location.radius}m
       final text = '''
 ${location.name}
 
-Type: ${location.type}
+Category: ${location.locationCategory}
+SubCategory: ${location.locationSubCategory}
+Type: ${location.realSub}
 Address: ${location.address ?? 'N/A'}
 Coordinates: ${location.latitude}, ${location.longitude}
 Radius: ${location.radius}m
@@ -350,7 +337,7 @@ Radius: ${location.radius}m
 
       return await shareText(text, subject: 'Location: ${location.name}');
     } catch (e) {
-      ServiceLogger.error('Failed to share location', error: e);
+      debugPrint('ERROR: Failed to share location: $e');
       return false;
     }
   }

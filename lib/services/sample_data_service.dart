@@ -7,7 +7,10 @@ class SampleDataService {
       // Masjid di Jakarta
       LocationModel(
         name: 'Masjid Istiqlal',
-        type: 'masjid',
+        locationCategory: 'Tempat Ibadah',
+        locationSubCategory: 'Masjid',
+        realSub: 'masjid_agung',
+        tags: const ['ibadah', 'shalat', 'jumatan', 'mengaji', 'zikir', 'doa'],
         latitude: -6.1702,
         longitude: 106.8294,
         radius: 50.0,
@@ -18,7 +21,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Masjid Al-Azhar',
-        type: 'masjid',
+        locationCategory: 'Tempat Ibadah',
+        locationSubCategory: 'Masjid',
+        realSub: 'masjid',
+        tags: const ['ibadah', 'shalat', 'jumatan', 'mengaji', 'zikir', 'doa'],
         latitude: -6.2000,
         longitude: 106.8000,
         radius: 30.0,
@@ -28,7 +34,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Masjid Cut Meutia',
-        type: 'masjid',
+        locationCategory: 'Tempat Ibadah',
+        locationSubCategory: 'Masjid',
+        realSub: 'masjid',
+        tags: const ['ibadah', 'shalat', 'jumatan', 'mengaji', 'zikir', 'doa'],
         latitude: -6.1900,
         longitude: 106.8200,
         radius: 25.0,
@@ -40,7 +49,10 @@ class SampleDataService {
       // Sekolah di Jakarta
       LocationModel(
         name: 'SD Negeri 01 Menteng',
-        type: 'sekolah',
+        locationCategory: 'Pendidikan',
+        locationSubCategory: 'Sekolah',
+        realSub: 'sd',
+        tags: const ['pendidikan', 'belajar', 'murid', 'guru'],
         latitude: -6.1950,
         longitude: 106.8300,
         radius: 40.0,
@@ -50,7 +62,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'SMP Negeri 1 Jakarta',
-        type: 'sekolah',
+        locationCategory: 'Pendidikan',
+        locationSubCategory: 'Sekolah',
+        realSub: 'smp',
+        tags: const ['pendidikan', 'belajar', 'murid', 'guru'],
         latitude: -6.1800,
         longitude: 106.8400,
         radius: 35.0,
@@ -60,7 +75,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'SMA Negeri 1 Jakarta',
-        type: 'sekolah',
+        locationCategory: 'Pendidikan',
+        locationSubCategory: 'Sekolah',
+        realSub: 'sma',
+        tags: const ['pendidikan', 'belajar', 'murid', 'guru'],
         latitude: -6.1700,
         longitude: 106.8500,
         radius: 45.0,
@@ -69,10 +87,13 @@ class SampleDataService {
         isActive: true,
       ),
 
-      // Kampus di Jakarta (dianggap sebagai sekolah)
+      // Kampus di Jakarta
       LocationModel(
         name: 'Universitas Indonesia',
-        type: 'sekolah',
+        locationCategory: 'Pendidikan',
+        locationSubCategory: 'Universitas',
+        realSub: 'universitas',
+        tags: const ['mahasiswa', 'dosen', 'pendidikan', 'ilmu'],
         latitude: -6.3600,
         longitude: 106.8300,
         radius: 100.0,
@@ -82,7 +103,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Institut Teknologi Bandung',
-        type: 'sekolah',
+        locationCategory: 'Pendidikan',
+        locationSubCategory: 'Universitas',
+        realSub: 'institut',
+        tags: const ['mahasiswa', 'dosen', 'pendidikan', 'ilmu'],
         latitude: -6.8900,
         longitude: 107.6100,
         radius: 80.0,
@@ -92,7 +116,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Universitas Gadjah Mada',
-        type: 'sekolah',
+        locationCategory: 'Pendidikan',
+        locationSubCategory: 'Universitas',
+        realSub: 'universitas',
+        tags: const ['mahasiswa', 'dosen', 'pendidikan', 'ilmu'],
         latitude: -7.7700,
         longitude: 110.3800,
         radius: 90.0,
@@ -104,7 +131,16 @@ class SampleDataService {
       // Rumah Sakit di Jakarta
       LocationModel(
         name: 'RSUD Cengkareng',
-        type: 'rumah_sakit',
+        locationCategory: 'Kesehatan',
+        locationSubCategory: 'Rumah Sakit',
+        realSub: 'rsud',
+        tags: const [
+          'kesehatan',
+          'sakit',
+          'kesembuhan',
+          'dokter',
+          'doa_kesembuhan'
+        ],
         latitude: -6.1500,
         longitude: 106.7500,
         radius: 60.0,
@@ -114,7 +150,16 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'RS Siloam',
-        type: 'rumah_sakit',
+        locationCategory: 'Kesehatan',
+        locationSubCategory: 'Rumah Sakit',
+        realSub: 'rs_swasta',
+        tags: const [
+          'kesehatan',
+          'sakit',
+          'kesembuhan',
+          'dokter',
+          'doa_kesembuhan'
+        ],
         latitude: -6.2000,
         longitude: 106.7800,
         radius: 55.0,
@@ -124,7 +169,16 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'RSUD Tarakan',
-        type: 'rumah_sakit',
+        locationCategory: 'Kesehatan',
+        locationSubCategory: 'Rumah Sakit',
+        realSub: 'rsud',
+        tags: const [
+          'kesehatan',
+          'sakit',
+          'kesembuhan',
+          'dokter',
+          'doa_kesembuhan'
+        ],
         latitude: -6.1600,
         longitude: 106.8200,
         radius: 50.0,
@@ -136,7 +190,10 @@ class SampleDataService {
       // Tempat Umum Lainnya
       LocationModel(
         name: 'Pasar Senen',
-        type: 'pasar',
+        locationCategory: 'Makan, Minum & Rekreasi',
+        locationSubCategory: 'Pasar & Mall',
+        realSub: 'pasar_tradisional',
+        tags: const ['jual_beli', 'perdagangan', 'doa_rezeki'],
         latitude: -6.1800,
         longitude: 106.8400,
         radius: 40.0,
@@ -146,7 +203,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Stasiun Gambir',
-        type: 'stasiun',
+        locationCategory: 'Transportasi',
+        locationSubCategory: 'Stasiun',
+        realSub: 'stasiun_kereta',
+        tags: const ['transportasi', 'kereta', 'doa_perjalanan'],
         latitude: -6.1700,
         longitude: 106.8300,
         radius: 35.0,
@@ -158,7 +218,10 @@ class SampleDataService {
       // Jalan Raya (untuk doa bepergian)
       LocationModel(
         name: 'Jalan Tol Jakarta-Cikampek',
-        type: 'jalan',
+        locationCategory: 'Alam & Ruang Terbuka',
+        locationSubCategory: 'Jalan & Perjalanan',
+        realSub: 'tol',
+        tags: const ['safar', 'perjalanan', 'doa_safar', 'keselamatan'],
         latitude: -6.2000,
         longitude: 107.0000,
         radius: 200.0,
@@ -168,7 +231,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Jalan Sudirman-Thamrin',
-        type: 'jalan',
+        locationCategory: 'Alam & Ruang Terbuka',
+        locationSubCategory: 'Jalan & Perjalanan',
+        realSub: 'jalan_raya',
+        tags: const ['safar', 'perjalanan', 'doa_safar', 'keselamatan'],
         latitude: -6.1900,
         longitude: 106.8200,
         radius: 150.0,
@@ -178,7 +244,10 @@ class SampleDataService {
       ),
       LocationModel(
         name: 'Jalan Gatot Subroto',
-        type: 'jalan',
+        locationCategory: 'Alam & Ruang Terbuka',
+        locationSubCategory: 'Jalan & Perjalanan',
+        realSub: 'jalan_raya',
+        tags: const ['safar', 'perjalanan', 'doa_safar', 'keselamatan'],
         latitude: -6.2200,
         longitude: 106.8000,
         radius: 120.0,
@@ -191,6 +260,10 @@ class SampleDataService {
 
   static List<PrayerModel> getSamplePrayers() {
     return [
+      // ==========================================
+      // 1. TEMPAT IBADAH
+      // ==========================================
+
       // Doa Masuk Masjid
       PrayerModel(
         title: 'Doa Masuk Masjid',
@@ -200,7 +273,7 @@ class SampleDataService {
             'A\'udzu billahil \'azhim wa biwajhihil karim wa sultanihil qadim minas syaithanir rajim',
         indonesianText:
             'Aku berlindung kepada Allah Yang Maha Agung, dengan wajah-Nya Yang Mulia dan kekuasaan-Nya Yang Abadi dari setan yang terkutuk',
-        locationType: 'masjid',
+        locationType: 'Tempat Ibadah',
         category: 'doa_masuk',
         reference: 'HR. Abu Daud',
         isActive: true,
@@ -211,20 +284,47 @@ class SampleDataService {
         latinText: 'Allahumma inni as\'aluka min fadhlik',
         indonesianText:
             'Ya Allah, sesungguhnya aku memohon kepada-Mu dari karunia-Mu',
-        locationType: 'masjid',
+        locationType: 'Tempat Ibadah',
         category: 'doa_keluar',
         reference: 'HR. Muslim',
         isActive: true,
       ),
+      PrayerModel(
+        title: 'Doa Dzikir di Masjid',
+        arabicText:
+            'سُبْحَانَ اللَّهِ وَالْحَمْدُ لِلَّهِ وَلَا إِلَهَ إِلَّا اللَّهُ وَاللَّهُ أَكْبَرُ',
+        latinText:
+            'Subhanallahi walhamdulillahi wa la ilaha illallahu wallahu akbar',
+        indonesianText:
+            'Maha Suci Allah, segala puji bagi Allah, tiada tuhan selain Allah, dan Allah Maha Besar',
+        locationType: 'Tempat Ibadah',
+        category: 'doa_dzikir',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa di Musholla',
+        arabicText: 'رَبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِنْ ذُرِّيَّتِي',
+        latinText: 'Rabbij\'alni muqimas shalati wa min dzurriyyati',
+        indonesianText:
+            'Ya Tuhanku, jadikanlah aku dan sebagian keturunanku orang-orang yang mendirikan shalat',
+        locationType: 'Tempat Ibadah',
+        category: 'doa_ibadah',
+        reference: 'QS. Ibrahim: 40',
+        isActive: true,
+      ),
 
-      // Doa Masuk Sekolah
+      // ==========================================
+      // 2. PENDIDIKAN
+      // ==========================================
+
       PrayerModel(
         title: 'Doa Masuk Sekolah',
         arabicText: 'رَبِّ زِدْنِي عِلْمًا وَارْزُقْنِي فَهْمًا',
         latinText: 'Rabbi zidni \'ilman warzuqni fahman',
         indonesianText:
             'Ya Tuhanku, tambahkanlah ilmu kepadaku dan berikanlah aku pemahaman',
-        locationType: 'sekolah',
+        locationType: 'Pendidikan',
         category: 'doa_masuk',
         reference: 'QS. Taha: 114',
         isActive: true,
@@ -236,13 +336,38 @@ class SampleDataService {
         latinText: 'Allahumma inni astaudi\'uka ma qara\'tu wa ma hafaztu',
         indonesianText:
             'Ya Allah, sesungguhnya aku menitipkan kepada-Mu apa yang telah aku baca dan hafal',
-        locationType: 'sekolah',
+        locationType: 'Pendidikan',
         category: 'doa_keluar',
         reference: 'HR. Abu Daud',
         isActive: true,
       ),
+      PrayerModel(
+        title: 'Doa Sebelum Belajar',
+        arabicText: 'رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي',
+        latinText: 'Rabbisy rahli shadri wa yassir li amri',
+        indonesianText:
+            'Ya Tuhanku, lapangkanlah dadaku dan mudahkanlah urusanku',
+        locationType: 'Pendidikan',
+        category: 'doa_belajar',
+        reference: 'QS. Thaha: 25-26',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa di Kampus/Universitas',
+        arabicText: 'اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا',
+        latinText: 'Allahumma la sahla illa ma ja\'altahu sahla',
+        indonesianText:
+            'Ya Allah, tidak ada kemudahan kecuali yang Engkau mudahkan',
+        locationType: 'Pendidikan',
+        category: 'doa_belajar',
+        reference: 'HR. Ibnu Hibban',
+        isActive: true,
+      ),
 
-      // Doa Masuk Rumah Sakit
+      // ==========================================
+      // 3. KESEHATAN
+      // ==========================================
+
       PrayerModel(
         title: 'Doa Masuk Rumah Sakit',
         arabicText:
@@ -250,7 +375,7 @@ class SampleDataService {
         latinText: 'Allahumma rabban nasi adzhibil ba\'sa wasyfi antas syafi',
         indonesianText:
             'Ya Allah, Tuhan manusia, hilangkanlah penyakit dan sembuhkanlah, Engkau adalah Yang Menyembuhkan',
-        locationType: 'rumah_sakit',
+        locationType: 'Kesehatan',
         category: 'doa_masuk',
         reference: 'HR. Bukhari',
         isActive: true,
@@ -262,143 +387,28 @@ class SampleDataService {
         latinText: 'Alhamdulillahilladzi \'afani mimma ibtalaka bihi',
         indonesianText:
             'Segala puji bagi Allah yang telah menyembuhkanku dari penyakit yang Engkau timpakan kepadaku',
-        locationType: 'rumah_sakit',
-        category: 'doa_keluar',
-        reference: 'HR. Muslim',
-        isActive: true,
-      ),
-
-      // Doa Masuk Pasar
-      PrayerModel(
-        title: 'Doa Masuk Pasar',
-        arabicText: 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ',
-        latinText: 'La ilaha illallah wahdahu la syarika lah',
-        indonesianText:
-            'Tidak ada Tuhan selain Allah, Yang Maha Esa, tidak ada sekutu bagi-Nya',
-        locationType: 'pasar',
-        category: 'doa_masuk',
-        reference: 'HR. Muslim',
-        isActive: true,
-      ),
-
-      // Doa Masuk Stasiun
-      PrayerModel(
-        title: 'Doa Masuk Stasiun',
-        arabicText: 'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا',
-        latinText: 'Subhanalladzi sakhkhara lana hadza',
-        indonesianText: 'Maha Suci Allah yang telah menundukkan ini untuk kami',
-        locationType: 'stasiun',
-        category: 'doa_masuk',
-        reference: 'QS. Az-Zukhruf: 13',
-        isActive: true,
-      ),
-
-      // Doa Bepergian (untuk jalan)
-      PrayerModel(
-        title: 'Doa Bepergian',
-        arabicText:
-            'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ',
-        latinText:
-            'Subhanalladzi sakhkhara lana hadza wa ma kunna lahu muqrinin',
-        indonesianText:
-            'Maha Suci Allah yang telah menundukkan ini untuk kami, padahal kami sebelumnya tidak mampu menguasainya',
-        locationType: 'jalan',
-        category: 'doa_masuk',
-        reference: 'QS. Az-Zukhruf: 13',
-        isActive: true,
-      ),
-      PrayerModel(
-        title: 'Doa Keselamatan di Jalan',
-        arabicText:
-            'اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى',
-        latinText:
-            'Allahumma innana nas\'aluka fi safarina hadza al-birra wat taqwa',
-        indonesianText:
-            'Ya Allah, sesungguhnya kami memohon kepada-Mu dalam perjalanan kami ini kebaikan dan ketakwaan',
-        locationType: 'jalan',
+        locationType: 'Kesehatan',
         category: 'doa_keluar',
         reference: 'HR. Muslim',
         isActive: true,
       ),
       PrayerModel(
-        title: 'Doa Selamat Sampai Tujuan',
-        arabicText: 'آيِبُونَ تَائِبُونَ عَابِدُونَ لِرَبِّنَا حَامِدُونَ',
-        latinText: 'A\'ibuna ta\'ibuna \'abiduna lirabbina hamidun',
-        indonesianText:
-            'Kami kembali dengan bertaubat, beribadah, dan memuji Tuhan kami',
-        locationType: 'jalan',
-        category: 'doa_keluar',
-        reference: 'HR. Bukhari',
-        isActive: true,
-      ),
-
-      // Doa Masuk Restoran
-      PrayerModel(
-        title: 'Doa Sebelum Makan',
-        arabicText: 'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
-        latinText: 'Bismillahirrahmanirrahim',
-        indonesianText:
-            'Dengan nama Allah Yang Maha Pengasih lagi Maha Penyayang',
-        locationType: 'restoran',
-        category: 'doa_masuk',
-        reference: 'HR. Bukhari',
-        isActive: true,
-      ),
-      PrayerModel(
-        title: 'Doa Sesudah Makan',
+        title: 'Doa Kesembuhan',
         arabicText:
-            'الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مُسْلِمِينَ',
-        latinText:
-            'Alhamdulillahilladzi at\'amana wa saqana wa ja\'alana muslimin',
+            'اللَّهُمَّ رَبَّ النَّاسِ مُذْهِبَ الْبَأْسِ اشْفِ أَنْتَ الشَّافِي',
+        latinText: 'Allahumma rabban nasi mudzhibal ba\'si isyfi antasy syafi',
         indonesianText:
-            'Segala puji bagi Allah yang telah memberi kami makan dan minum serta menjadikan kami muslim',
-        locationType: 'restoran',
-        category: 'doa_keluar',
-        reference: 'HR. Abu Daud',
+            'Ya Allah Tuhan manusia, hilangkanlah kesusahan, sembuhkanlah, Engkau Maha Penyembuh',
+        locationType: 'Kesehatan',
+        category: 'doa_kesembuhan',
+        reference: 'HR. Bukhari & Muslim',
         isActive: true,
       ),
 
-      // Doa Masuk Terminal
-      PrayerModel(
-        title: 'Doa Naik Kendaraan',
-        arabicText:
-            'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ',
-        latinText:
-            'Subhanalladzi sakhkhara lana hadza wa ma kunna lahu muqrinin',
-        indonesianText:
-            'Maha Suci Allah yang telah menundukkan ini untuk kami, padahal kami sebelumnya tidak mampu menguasainya',
-        locationType: 'terminal',
-        category: 'doa_masuk',
-        reference: 'QS. Az-Zukhruf: 13',
-        isActive: true,
-      ),
+      // ==========================================
+      // 4. TEMPAT TINGGAL
+      // ==========================================
 
-      // Doa Masuk Bandara
-      PrayerModel(
-        title: 'Doa Bepergian Jauh',
-        arabicText:
-            'اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى',
-        latinText:
-            'Allahumma innana nas\'aluka fi safarina hadza al-birra wat taqwa',
-        indonesianText:
-            'Ya Allah, sesungguhnya kami memohon kepada-Mu dalam perjalanan kami ini kebaikan dan ketakwaan',
-        locationType: 'bandara',
-        category: 'doa_masuk',
-        reference: 'HR. Muslim',
-        isActive: true,
-      ),
-      PrayerModel(
-        title: 'Doa Keselamatan Penerbangan',
-        arabicText: 'اللَّهُمَّ أَنْتَ الصَّاحِبُ فِي السَّفَرِ',
-        latinText: 'Allahumma antas shahibu fis safari',
-        indonesianText: 'Ya Allah, Engkau adalah teman dalam perjalanan',
-        locationType: 'bandara',
-        category: 'doa_keluar',
-        reference: 'HR. Muslim',
-        isActive: true,
-      ),
-
-      // Doa Masuk Rumah
       PrayerModel(
         title: 'Doa Masuk Rumah',
         arabicText:
@@ -406,8 +416,8 @@ class SampleDataService {
         latinText:
             'Allahumma inni as\'aluka khairal mauliji wa khairal makhraji',
         indonesianText:
-            'Ya Allah, sesungguhnya aku memohon kepada-Mu kebaikan tempat masuk dan kebaikan tempat keluar',
-        locationType: 'rumah',
+            'Ya Allah, aku memohon kepada-Mu kebaikan tempat masuk dan kebaikan tempat keluar',
+        locationType: 'Tempat Tinggal',
         category: 'doa_masuk',
         reference: 'HR. Abu Daud',
         isActive: true,
@@ -420,13 +430,28 @@ class SampleDataService {
             'Bismillahi tawakkaltu \'alallahi la haula wa la quwwata illa billah',
         indonesianText:
             'Dengan nama Allah, aku bertawakal kepada Allah, tidak ada daya dan upaya kecuali dengan pertolongan Allah',
-        locationType: 'rumah',
+        locationType: 'Tempat Tinggal',
         category: 'doa_keluar',
         reference: 'HR. Abu Daud',
         isActive: true,
       ),
+      PrayerModel(
+        title: 'Doa Keberkahan Rumah',
+        arabicText:
+            'اللَّهُمَّ بَارِكْ لَنَا فِيمَا رَزَقْتَنَا وَقِنَا عَذَابَ النَّارِ',
+        latinText: 'Allahumma barik lana fima razaqtana wa qina adzaban naar',
+        indonesianText:
+            'Ya Allah, berkatilah kami dalam rezeki yang Engkau berikan dan lindungi kami dari siksa neraka',
+        locationType: 'Tempat Tinggal',
+        category: 'doa_keberkahan',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
 
-      // Doa Masuk Kantor
+      // ==========================================
+      // 5. TEMPAT KERJA & USAHA
+      // ==========================================
+
       PrayerModel(
         title: 'Doa Memulai Kerja',
         arabicText:
@@ -434,7 +459,7 @@ class SampleDataService {
         latinText: 'Allahumma barik li fi waqti wa a\'inni \'ala syukrik',
         indonesianText:
             'Ya Allah, berkahilah waktu saya dan bantulah aku untuk bersyukur kepada-Mu',
-        locationType: 'kantor',
+        locationType: 'Tempat Kerja & Usaha',
         category: 'doa_masuk',
         reference: 'HR. Tirmidzi',
         isActive: true,
@@ -445,95 +470,181 @@ class SampleDataService {
         latinText: 'Alhamdulillahilladzi atamma \'alaina ni\'matahu',
         indonesianText:
             'Segala puji bagi Allah yang telah menyempurnakan nikmat-Nya kepada kami',
-        locationType: 'kantor',
+        locationType: 'Tempat Kerja & Usaha',
         category: 'doa_keluar',
         reference: 'HR. Abu Daud',
         isActive: true,
       ),
-
-      // Doa Masuk Cafe
       PrayerModel(
-        title: 'Doa Minum',
-        arabicText: 'بِسْمِ اللَّهِ',
-        latinText: 'Bismillah',
-        indonesianText: 'Dengan nama Allah',
-        locationType: 'cafe',
-        category: 'doa_masuk',
-        reference: 'HR. Bukhari',
-        isActive: true,
-      ),
-      PrayerModel(
-        title: 'Doa Sesudah Minum',
-        arabicText: 'الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا',
-        latinText: 'Alhamdulillahilladzi at\'amana wa saqana',
+        title: 'Doa Keberkahan Usaha',
+        arabicText: 'اللَّهُمَّ إِنِّي أَسْأَلُكَ الْبَرَكَةَ فِي رِزْقِي',
+        latinText: 'Allahumma inni as\'alukal barakata fi rizqi',
         indonesianText:
-            'Segala puji bagi Allah yang telah memberi kami makan dan minum',
-        locationType: 'cafe',
-        category: 'doa_keluar',
-        reference: 'HR. Abu Daud',
-        isActive: true,
-      ),
-
-      // Doa Tempat Kerja
-      PrayerModel(
-        title: 'Doa Memulai Pekerjaan',
-        arabicText: 'اللَّهُمَّ بَارِكْ لِي فِي وَقْتِي',
-        latinText: 'Allahumma barik li fi waqti',
-        indonesianText: 'Ya Allah, berkahilah waktu saya',
-        locationType: 'tempat_kerja',
-        category: 'doa_masuk',
+            'Ya Allah, aku memohon kepada-Mu keberkahan dalam rezekiku',
+        locationType: 'Tempat Kerja & Usaha',
+        category: 'doa_rezeki',
         reference: 'HR. Tirmidzi',
         isActive: true,
       ),
-      PrayerModel(
-        title: 'Doa Selesai Bekerja',
-        arabicText: 'الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا',
-        latinText: 'Alhamdulillahilladzi at\'amana wa saqana',
-        indonesianText:
-            'Segala puji bagi Allah yang telah memberi makan dan minum kepada kami',
-        locationType: 'tempat_kerja',
-        category: 'doa_keluar',
-        reference: 'HR. Muslim',
-        isActive: true,
-      ),
 
-      // Doa Restoran
+      // ==========================================
+      // 6. MAKAN, MINUM & REKREASI
+      // ==========================================
+
       PrayerModel(
         title: 'Doa Sebelum Makan',
         arabicText: 'بِسْمِ اللَّهِ وَعَلَى بَرَكَةِ اللَّهِ',
         latinText: 'Bismillahi wa \'ala barakatillah',
         indonesianText: 'Dengan nama Allah dan atas berkah Allah',
-        locationType: 'restoran',
+        locationType: 'Makan, Minum & Rekreasi',
         category: 'doa_masuk',
         reference: 'HR. Abu Daud',
         isActive: true,
       ),
       PrayerModel(
-        title: 'Doa Setelah Makan',
+        title: 'Doa Sesudah Makan',
         arabicText:
             'الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مُسْلِمِينَ',
         latinText:
             'Alhamdulillahilladzi at\'amana wa saqana wa ja\'alana muslimin',
         indonesianText:
-            'Segala puji bagi Allah yang telah memberi makan dan minum kepada kami dan menjadikan kami muslim',
-        locationType: 'restoran',
+            'Segala puji bagi Allah yang telah memberi kami makan dan minum serta menjadikan kami muslim',
+        locationType: 'Makan, Minum & Rekreasi',
         category: 'doa_keluar',
         reference: 'HR. Abu Daud',
         isActive: true,
       ),
-
-      // Doa Umum
       PrayerModel(
-        title: 'Doa Umum',
-        arabicText:
-            'رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً',
-        latinText:
-            'Rabbanana atina fid dunya hasanatan wa fil akhirati hasanatan',
+        title: 'Doa Masuk Pasar',
+        arabicText: 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ',
+        latinText: 'La ilaha illallah wahdahu la syarika lah',
         indonesianText:
-            'Ya Tuhan kami, berikanlah kepada kami kebaikan di dunia dan kebaikan di akhirat',
-        locationType: 'umum',
-        category: 'doa_umum',
-        reference: 'QS. Al-Baqarah: 201',
+            'Tidak ada Tuhan selain Allah, Yang Maha Esa, tidak ada sekutu bagi-Nya',
+        locationType: 'Makan, Minum & Rekreasi',
+        category: 'doa_masuk',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+
+      // ==========================================
+      // 7. TRANSPORTASI
+      // ==========================================
+
+      PrayerModel(
+        title: 'Doa Naik Kendaraan',
+        arabicText:
+            'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ',
+        latinText:
+            'Subhanalladzi sakhkhara lana hadza wa ma kunna lahu muqrinin',
+        indonesianText:
+            'Maha Suci Allah yang telah menundukkan ini untuk kami, padahal kami sebelumnya tidak mampu menguasainya',
+        locationType: 'Transportasi',
+        category: 'doa_masuk',
+        reference: 'QS. Az-Zukhruf: 13',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa Bepergian Jauh',
+        arabicText:
+            'اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى',
+        latinText:
+            'Allahumma innana nas\'aluka fi safarina hadza al-birra wat taqwa',
+        indonesianText:
+            'Ya Allah, sesungguhnya kami memohon kepada-Mu dalam perjalanan kami ini kebaikan dan ketakwaan',
+        locationType: 'Transportasi',
+        category: 'doa_safar',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa Keselamatan di Perjalanan',
+        arabicText:
+            'اللَّهُمَّ أَنْتَ الصَّاحِبُ فِي السَّفَرِ وَالْخَلِيفَةُ فِي الْأَهْلِ',
+        latinText: 'Allahumma antas shahibu fis safari wal khalifatu fil ahli',
+        indonesianText:
+            'Ya Allah, Engkau adalah teman dalam perjalanan dan pelindung keluarga',
+        locationType: 'Transportasi',
+        category: 'doa_safar',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+
+      // ==========================================
+      // 8. TEMPAT UMUM & SOSIAL
+      // ==========================================
+
+      PrayerModel(
+        title: 'Doa Ziarah Kubur',
+        arabicText: 'السَّلَامُ عَلَيْكُمْ دَارَ قَوْمٍ مُؤْمِنِينَ',
+        latinText: 'Assalamu \'alaikum dara qaumin mu\'minin',
+        indonesianText: 'Keselamatan atasmu wahai penghuni negeri kaum mukmin',
+        locationType: 'Tempat Umum & Sosial',
+        category: 'doa_ziarah',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa Untuk Orang yang Meninggal',
+        arabicText:
+            'اللَّهُمَّ اغْفِرْ لَهُ وَارْحَمْهُ وَعَافِهِ وَاعْفُ عَنْهُ',
+        latinText: 'Allahummaghfir lahu warhamhu wa \'afihi wa\'fu \'anhu',
+        indonesianText:
+            'Ya Allah, ampunilah dia, kasihanilah dia, berilah keselamatan dan maafkanlah dia',
+        locationType: 'Tempat Umum & Sosial',
+        category: 'doa_arwah',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+
+      // ==========================================
+      // 9. ALAM & RUANG TERBUKA
+      // ==========================================
+
+      PrayerModel(
+        title: 'Doa Bepergian',
+        arabicText:
+            'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ',
+        latinText:
+            'Subhanalladzi sakhkhara lana hadza wa ma kunna lahu muqrinin',
+        indonesianText:
+            'Maha Suci Allah yang telah menundukkan ini untuk kami, padahal kami sebelumnya tidak mampu menguasainya',
+        locationType: 'Alam & Ruang Terbuka',
+        category: 'doa_masuk',
+        reference: 'QS. Az-Zukhruf: 13',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa Keselamatan di Jalan',
+        arabicText:
+            'اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى',
+        latinText:
+            'Allahumma innana nas\'aluka fi safarina hadza al-birra wat taqwa',
+        indonesianText:
+            'Ya Allah, sesungguhnya kami memohon kepada-Mu dalam perjalanan kami ini kebaikan dan ketakwaan',
+        locationType: 'Alam & Ruang Terbuka',
+        category: 'doa_safar',
+        reference: 'HR. Muslim',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa Selamat Sampai Tujuan',
+        arabicText: 'آيِبُونَ تَائِبُونَ عَابِدُونَ لِرَبِّنَا حَامِدُونَ',
+        latinText: 'A\'ibuna ta\'ibuna \'abiduna lirabbina hamidun',
+        indonesianText:
+            'Kami kembali dengan bertaubat, beribadah, dan memuji Tuhan kami',
+        locationType: 'Alam & Ruang Terbuka',
+        category: 'doa_keluar',
+        reference: 'HR. Bukhari',
+        isActive: true,
+      ),
+      PrayerModel(
+        title: 'Doa Melihat Keindahan Alam',
+        arabicText: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
+        latinText: 'Subhanallahi wa bihamdihi',
+        indonesianText: 'Maha Suci Allah dengan segala puji-Nya',
+        locationType: 'Alam & Ruang Terbuka',
+        category: 'doa_dzikir',
+        reference: 'HR. Bukhari',
         isActive: true,
       ),
     ];

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/location_model.dart';
 import '../models/prayer_model.dart';
 import '../services/state_management_service.dart';
@@ -36,14 +38,14 @@ class LocationService extends ChangeNotifier {
 
   Future<void> initLocationService() async {
     try {
-      ServiceLogger.info('Initializing location service');
+      debugPrint('Initializing location service');
 
       await _checkLocationPermission();
       await _loadLocationsFromDatabase();
 
-      ServiceLogger.info('Location service initialized');
+      debugPrint('Location service initialized');
     } catch (e) {
-      ServiceLogger.error('Failed to initialize location service', error: e);
+      debugPrint('ERROR: Failed to initialize location service: $e');
       rethrow;
     }
   }
@@ -67,18 +69,14 @@ class LocationService extends ChangeNotifier {
 
   Future<void> _loadLocationsFromDatabase() async {
     try {
-      List<LocationModel> locations;
-      if (kIsWeb) {
-        locations = await WebDataService.instance.getAllLocations();
-      } else {
-        locations = await DatabaseService.instance.getAllLocations();
-      }
+      // Load dari database (mobile only)
+      final locations = await DatabaseService.instance.getAllLocations();
 
       // Update state through StateManagementService
       StateManagementService.instance.updateNearbyLocations(locations);
       notifyListeners();
     } catch (e) {
-      ServiceLogger.error('Error loading locations', error: e);
+      debugPrint('ERROR: Error loading locations: $e');
     }
   }
 
@@ -109,14 +107,8 @@ class LocationService extends ChangeNotifier {
       ).listen(
         _onLocationUpdate,
         onError: (error) {
-          ServiceLogger.error('Location stream error', error: error);
+          debugPrint('ERROR: Location stream error: $error');
         },
-      );
-
-      // Register with memory leak detection
-      MemoryLeakDetectionService.instance.registerSubscription(
-        'location_position_stream',
-        _positionStream!,
       );
 
       // Update state through StateManagementService
@@ -124,7 +116,7 @@ class LocationService extends ChangeNotifier {
       _startGeofenceMonitoring();
       notifyListeners();
     } catch (e) {
-      ServiceLogger.error('Error starting location tracking', error: e);
+      debugPrint('ERROR: Error starting location tracking: $e');
       rethrow;
     }
   }
@@ -134,18 +126,51 @@ class LocationService extends ChangeNotifier {
       // Update state through StateManagementService
       StateManagementService.instance.updateCurrentPosition(position);
 
+      // Update address
+      _updateCurrentAddress(position);
+
       // Check geofence
       _checkGeofence(position);
 
       notifyListeners();
     } catch (e) {
-      ServiceLogger.error('Error in location update', error: e);
+      debugPrint('ERROR: Error in location update: $e');
     }
   }
 
-  void _checkGeofence(Position position) {
+  // Update current address from coordinates
+  Future<void> _updateCurrentAddress(Position position) async {
     try {
-      final nearby = StateManagementService.instance.nearbyLocations;
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        final placemark = placemarks.first;
+        final address =
+            '${placemark.street}, ${placemark.subLocality}, ${placemark.locality}, ${placemark.administrativeArea}';
+
+        // Save to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('current_address', address);
+      }
+    } catch (e) {
+      debugPrint('Error updating address: $e');
+    }
+  }
+
+  Future<void> _checkGeofence(Position position) async {
+    try {
+      // ✅ OPTIMIZED: Use spatial query instead of loading all locations
+      final nearby = await DatabaseService.instance.getLocationsNear(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        radiusKm: 5.0, // Only check locations within 5km
+        activeOnly: true,
+      );
+
+      debugPrint('🔍 Geofence check: ${nearby.length} locations nearby');
 
       for (final location in nearby) {
         final distance = Geolocator.distanceBetween(
@@ -158,21 +183,30 @@ class LocationService extends ChangeNotifier {
         if (distance <= location.radius) {
           // User is within geofence
           _triggerGeofenceEvent(location);
+
+          debugPrint('''
+🚨 GEOFENCE TRIGGERED!
+   Location: ${location.name}
+   Category: ${location.locationCategory} > ${location.locationSubCategory}
+   Type: ${location.realSub}
+   Distance: ${distance.toStringAsFixed(1)}m
+   Radius: ${location.radius}m
+          ''');
         }
       }
     } catch (e) {
-      ServiceLogger.error('Error checking geofence', error: e);
+      debugPrint('ERROR: Error checking geofence: $e');
     }
   }
 
   void _triggerGeofenceEvent(LocationModel location) {
     try {
-      ServiceLogger.info('Geofence triggered for location: ${location.name}');
+      debugPrint('Geofence triggered for location: ${location.name}');
 
       // TODO: Implement geofence event handling
       // This could include showing notifications, updating UI, etc.
     } catch (e) {
-      ServiceLogger.error('Error triggering geofence event', error: e);
+      debugPrint('ERROR: Error triggering geofence event: $e');
     }
   }
 
@@ -185,26 +219,20 @@ class LocationService extends ChangeNotifier {
         (_) => _performGeofenceCheck(),
       );
 
-      // Register with memory leak detection
-      MemoryLeakDetectionService.instance.registerTimer(
-        'geofence_timer',
-        _geofenceTimer!,
-      );
-
-      ServiceLogger.info('Geofence monitoring started');
+      debugPrint('Geofence monitoring started');
     } catch (e) {
-      ServiceLogger.error('Error starting geofence monitoring', error: e);
+      debugPrint('ERROR: Error starting geofence monitoring: $e');
     }
   }
 
-  void _performGeofenceCheck() {
+  Future<void> _performGeofenceCheck() async {
     try {
       final currentPos = StateManagementService.instance.currentPosition;
       if (currentPos != null) {
-        _checkGeofence(currentPos);
+        await _checkGeofence(currentPos);
       }
     } catch (e) {
-      ServiceLogger.error('Error performing geofence check', error: e);
+      debugPrint('ERROR: Error performing geofence check: $e');
     }
   }
 
@@ -217,21 +245,14 @@ class LocationService extends ChangeNotifier {
       _positionStream?.cancel();
       _positionStream = null;
 
-      // Unregister from memory leak detection
-      MemoryLeakDetectionService.instance
-          .unregisterSubscription('location_position_stream');
-
       // Cancel geofence timer
       _geofenceTimer?.cancel();
       _geofenceTimer = null;
 
-      // Unregister from memory leak detection
-      MemoryLeakDetectionService.instance.unregisterTimer('geofence_timer');
-
       notifyListeners();
-      ServiceLogger.info('Location tracking stopped');
+      debugPrint('Location tracking stopped');
     } catch (e) {
-      ServiceLogger.error('Error stopping location tracking', error: e);
+      debugPrint('ERROR: Error stopping location tracking: $e');
     }
   }
 
@@ -249,12 +270,7 @@ class LocationService extends ChangeNotifier {
       await Future.delayed(const Duration(seconds: 2));
 
       // Get nearby locations from database
-      List<LocationModel> locations;
-      if (kIsWeb) {
-        locations = await WebDataService.instance.getAllLocations();
-      } else {
-        locations = await DatabaseService.instance.getAllLocations();
-      }
+      final locations = await DatabaseService.instance.getAllLocations();
 
       // Filter locations within scan radius
       final scanRadius = StateManagementService.instance.scanRadius;
@@ -273,11 +289,10 @@ class LocationService extends ChangeNotifier {
       StateManagementService.instance.setScanning(false);
 
       notifyListeners();
-      ServiceLogger.info(
-          'Nearby locations scanned: ${nearbyLocations.length} found');
+      debugPrint('Nearby locations scanned: ${nearbyLocations.length} found');
     } catch (e) {
       StateManagementService.instance.setScanning(false);
-      ServiceLogger.error('Error scanning nearby locations', error: e);
+      debugPrint('ERROR: Error scanning nearby locations: $e');
       rethrow;
     }
   }
@@ -285,23 +300,19 @@ class LocationService extends ChangeNotifier {
   Future<List<PrayerModel>> getPrayersForLocation(
       LocationModel location) async {
     try {
-      List<PrayerModel> prayers;
-      if (kIsWeb) {
-        prayers = await WebDataService.instance.getAllPrayers();
-      } else {
-        prayers = await DatabaseService.instance.getAllPrayers();
-      }
+      // Load dari database
+      final prayers = await DatabaseService.instance.getAllPrayers();
 
-      // Filter prayers for this location type
+      // Filter prayers for this location type (using SubCategory for matching)
       final locationPrayers = prayers.where((prayer) {
-        return prayer.locationType == location.type;
+        return prayer.locationType == location.locationSubCategory;
       }).toList();
 
-      ServiceLogger.info(
-          'Found ${locationPrayers.length} prayers for location type: ${location.type}');
+      debugPrint(
+          'Found ${locationPrayers.length} prayers for location type: ${location.locationSubCategory}');
       return locationPrayers;
     } catch (e) {
-      ServiceLogger.error('Error getting prayers for location', error: e);
+      debugPrint('ERROR: Error getting prayers for location: $e');
       return [];
     }
   }
@@ -312,30 +323,10 @@ class LocationService extends ChangeNotifier {
       // Stop location tracking
       stopLocationTracking();
 
-      // Save state
-      _saveState();
-
       super.dispose();
-      ServiceLogger.info('LocationService disposed');
+      debugPrint('LocationService disposed');
     } catch (e) {
-      ServiceLogger.error('Error disposing LocationService', error: e);
-    }
-  }
-
-  /// Save current state
-  Future<void> _saveState() async {
-    try {
-      await StateRestorationService.instance.saveLocationState(
-        isLocationTracking: StateManagementService.instance.isLocationTracking,
-        currentPosition: StateManagementService.instance.currentPosition,
-        nearbyLocations: StateManagementService.instance.nearbyLocations,
-        scannedLocations: StateManagementService.instance.scannedLocations,
-        scanRadius: StateManagementService.instance.scanRadius,
-        isScanning: StateManagementService.instance.isScanning,
-        lastScanTime: StateManagementService.instance.lastScanTime,
-      );
-    } catch (e) {
-      ServiceLogger.error('Error saving location state', error: e);
+      debugPrint('ERROR: Error disposing LocationService: $e');
     }
   }
 }

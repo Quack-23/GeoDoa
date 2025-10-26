@@ -35,7 +35,7 @@ class OfflineService extends ChangeNotifier {
   /// Initialize offline service
   Future<void> initialize() async {
     try {
-      ServiceLogger.info('Initializing offline service');
+      debugPrint('Initializing offline service');
 
       // Cek status koneksi awal
       await _checkConnectivity();
@@ -44,13 +44,13 @@ class OfflineService extends ChangeNotifier {
       _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
         _onConnectivityChanged,
         onError: (error) {
-          ServiceLogger.error('Connectivity stream error', error: error);
+          debugPrint('ERROR: Connectivity stream error: $error');
         },
       );
 
-      ServiceLogger.info('Offline service initialized successfully');
+      debugPrint('Offline service initialized successfully');
     } catch (e) {
-      ServiceLogger.error('Failed to initialize offline service', error: e);
+      debugPrint('ERROR: Failed to initialize offline service: $e');
       throw AppError(
         'Gagal menginisialisasi offline service',
         code: 'OFFLINE_SERVICE_INIT_ERROR',
@@ -72,7 +72,7 @@ class OfflineService extends ChangeNotifier {
       final result = await Connectivity().checkConnectivity();
       await _onConnectivityChanged(result);
     } catch (e) {
-      ServiceLogger.error('Failed to check connectivity', error: e);
+      debugPrint('ERROR: Failed to check connectivity: $e');
       _setOfflineStatus(true);
     }
   }
@@ -84,7 +84,7 @@ class OfflineService extends ChangeNotifier {
 
       if (result == ConnectivityResult.none) {
         _setOfflineStatus(true);
-        ServiceLogger.warning('Device is offline');
+        debugPrint('WARNING: Device is offline');
       } else {
         // Cek apakah benar-benar bisa connect ke internet
         final hasInternet = await _hasInternetConnection();
@@ -93,14 +93,14 @@ class OfflineService extends ChangeNotifier {
           _setOfflineStatus(false);
           _reconnectAttempts = 0;
           _reconnectTimer?.cancel();
-          ServiceLogger.info('Device is online');
+          debugPrint('Device is online');
         } else {
           _setOfflineStatus(true);
-          ServiceLogger.warning('Device has connection but no internet access');
+          debugPrint('WARNING: Device has connection but no internet access');
         }
       }
     } catch (e) {
-      ServiceLogger.error('Failed to handle connectivity change', error: e);
+      debugPrint('ERROR: Failed to handle connectivity change: $e');
       _setOfflineStatus(true);
     }
   }
@@ -128,7 +128,7 @@ class OfflineService extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      ServiceLogger.error('Failed to check internet connection', error: e);
+      debugPrint('ERROR: Failed to check internet connection: $e');
       return false;
     }
   }
@@ -137,7 +137,7 @@ class OfflineService extends ChangeNotifier {
   void _setOfflineStatus(bool isOffline) {
     if (_isOffline != isOffline) {
       _isOffline = isOffline;
-      ServiceLogger.info('Offline status changed: $isOffline');
+      debugPrint('Offline status changed: $isOffline');
       notifyListeners();
     }
   }
@@ -145,19 +145,19 @@ class OfflineService extends ChangeNotifier {
   /// Coba reconnect
   Future<void> tryReconnect() async {
     if (_reconnectAttempts >= maxReconnectAttempts) {
-      ServiceLogger.warning('Max reconnect attempts reached');
+      debugPrint('WARNING: Max reconnect attempts reached');
       return;
     }
 
     _reconnectAttempts++;
-    ServiceLogger.info(
+    debugPrint(
         'Attempting to reconnect (attempt $_reconnectAttempts/$maxReconnectAttempts)');
 
     try {
       await _checkConnectivity();
 
       if (!_isOffline) {
-        ServiceLogger.info('Reconnected successfully');
+        debugPrint('Reconnected successfully');
         return;
       }
 
@@ -168,7 +168,7 @@ class OfflineService extends ChangeNotifier {
         () => tryReconnect(),
       );
     } catch (e) {
-      ServiceLogger.error('Reconnect attempt failed', error: e);
+      debugPrint('ERROR: Reconnect attempt failed: $e');
     }
   }
 

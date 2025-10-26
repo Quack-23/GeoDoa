@@ -96,7 +96,7 @@ class StateManagementService extends ChangeNotifier {
   /// Initialize state management service
   Future<void> initialize() async {
     try {
-      ServiceLogger.info('Initializing state management service');
+      debugPrint('Initializing state management service');
 
       // Load persisted state
       await _loadPersistedState();
@@ -104,10 +104,9 @@ class StateManagementService extends ChangeNotifier {
       // Start background timers
       _startBackgroundTimers();
 
-      ServiceLogger.info('State management service initialized');
+      debugPrint('State management service initialized');
     } catch (e) {
-      ServiceLogger.error('Failed to initialize state management service',
-          error: e);
+      debugPrint('ERROR: Failed to initialize state management service: $e');
       rethrow;
     }
   }
@@ -115,7 +114,7 @@ class StateManagementService extends ChangeNotifier {
   /// Dispose service dan cleanup resources
   @override
   void dispose() {
-    ServiceLogger.info('Disposing state management service');
+    debugPrint('Disposing state management service');
 
     // Cancel all streams and timers
     _locationSubscription?.cancel();
@@ -136,7 +135,7 @@ class StateManagementService extends ChangeNotifier {
   void setLocationTracking(bool isTracking) {
     if (_isLocationTracking != isTracking) {
       _isLocationTracking = isTracking;
-      ServiceLogger.info('Location tracking state changed: $isTracking');
+      debugPrint('Location tracking state changed: $isTracking');
       notifyListeners();
     }
   }
@@ -145,10 +144,8 @@ class StateManagementService extends ChangeNotifier {
   void updateCurrentPosition(Position? position) {
     if (_currentPosition != position) {
       _currentPosition = position;
-      ServiceLogger.debug('Current position updated', data: {
-        'latitude': position?.latitude,
-        'longitude': position?.longitude,
-      });
+      debugPrint(
+          'Current position updated: ${position?.latitude}, ${position?.longitude}');
       notifyListeners();
     }
   }
@@ -156,16 +153,14 @@ class StateManagementService extends ChangeNotifier {
   /// Update nearby locations
   void updateNearbyLocations(List<LocationModel> locations) {
     _nearbyLocations = List.from(locations);
-    ServiceLogger.info(
-        'Nearby locations updated: ${locations.length} locations');
+    debugPrint('Nearby locations updated: ${locations.length} locations');
     notifyListeners();
   }
 
   /// Update scanned locations
   void updateScannedLocations(List<LocationModel> locations) {
     _scannedLocations = List.from(locations);
-    ServiceLogger.info(
-        'Scanned locations updated: ${locations.length} locations');
+    debugPrint('Scanned locations updated: ${locations.length} locations');
     notifyListeners();
   }
 
@@ -174,7 +169,7 @@ class StateManagementService extends ChangeNotifier {
     if (_scanRadius != radius) {
       _scanRadius =
           radius.clamp(AppConstants.minScanRadius, AppConstants.maxScanRadius);
-      ServiceLogger.info('Scan radius updated: $_scanRadius');
+      debugPrint('Scan radius updated: $_scanRadius');
       notifyListeners();
     }
   }
@@ -186,7 +181,7 @@ class StateManagementService extends ChangeNotifier {
       if (isScanning) {
         _lastScanTime = DateTime.now();
       }
-      ServiceLogger.info('Scanning state changed: $isScanning');
+      debugPrint('Scanning state changed: $isScanning');
       notifyListeners();
     }
   }
@@ -198,7 +193,7 @@ class StateManagementService extends ChangeNotifier {
   /// Update prayers
   void updatePrayers(List<PrayerModel> prayers) {
     _prayers = List.from(prayers);
-    ServiceLogger.info('Prayers updated: ${prayers.length} prayers');
+    debugPrint('Prayers updated: ${prayers.length} prayers');
     notifyListeners();
   }
 
@@ -206,7 +201,7 @@ class StateManagementService extends ChangeNotifier {
   void setSelectedPrayerCategory(String category) {
     if (_selectedPrayerCategory != category) {
       _selectedPrayerCategory = category;
-      ServiceLogger.info('Selected prayer category changed: $category');
+      debugPrint('Selected prayer category changed: $category');
       notifyListeners();
     }
   }
@@ -215,7 +210,7 @@ class StateManagementService extends ChangeNotifier {
   void setSelectedLocationType(String type) {
     if (_selectedLocationType != type) {
       _selectedLocationType = type;
-      ServiceLogger.info('Selected location type changed: $type');
+      debugPrint('Selected location type changed: $type');
       notifyListeners();
     }
   }
@@ -228,7 +223,7 @@ class StateManagementService extends ChangeNotifier {
   void updateUserName(String name) {
     if (_userName != name) {
       _userName = name;
-      ServiceLogger.info('User name updated: $name');
+      debugPrint('User name updated: $name');
       notifyListeners();
     }
   }
@@ -237,7 +232,7 @@ class StateManagementService extends ChangeNotifier {
   void updateUserBio(String bio) {
     if (_userBio != bio) {
       _userBio = bio;
-      ServiceLogger.info('User bio updated');
+      debugPrint('User bio updated');
       notifyListeners();
     }
   }
@@ -246,7 +241,7 @@ class StateManagementService extends ChangeNotifier {
   void updateUserLocation(String location) {
     if (_userLocation != location) {
       _userLocation = location;
-      ServiceLogger.info('User location updated: $location');
+      debugPrint('User location updated: $location');
       notifyListeners();
     }
   }
@@ -255,7 +250,7 @@ class StateManagementService extends ChangeNotifier {
   void setOnboardingCompleted(bool completed) {
     if (_isOnboardingCompleted != completed) {
       _isOnboardingCompleted = completed;
-      ServiceLogger.info('Onboarding completion changed: $completed');
+      debugPrint('Onboarding completion changed: $completed');
       notifyListeners();
     }
   }
@@ -268,7 +263,7 @@ class StateManagementService extends ChangeNotifier {
   void setOfflineState(bool isOffline) {
     if (_isOffline != isOffline) {
       _isOffline = isOffline;
-      ServiceLogger.info('Offline state changed: $isOffline');
+      debugPrint('Offline state changed: $isOffline');
       notifyListeners();
     }
   }
@@ -278,7 +273,7 @@ class StateManagementService extends ChangeNotifier {
     if (_isLoading != isLoading || _loadingMessage != message) {
       _isLoading = isLoading;
       _loadingMessage = message ?? '';
-      ServiceLogger.info(
+      debugPrint(
           'Loading state changed: $isLoading${message != null ? ' - $message' : ''}');
       notifyListeners();
     }
@@ -288,7 +283,7 @@ class StateManagementService extends ChangeNotifier {
   void setThemeMode(String mode) {
     if (_themeMode != mode) {
       _themeMode = mode;
-      ServiceLogger.info('Theme mode changed: $mode');
+      debugPrint('Theme mode changed: $mode');
       notifyListeners();
     }
   }
@@ -296,7 +291,7 @@ class StateManagementService extends ChangeNotifier {
   /// Update app settings
   void updateAppSettings(Map<String, dynamic> settings) {
     _appSettings = Map.from(settings);
-    ServiceLogger.info('App settings updated');
+    debugPrint('App settings updated');
     notifyListeners();
   }
 
@@ -308,7 +303,7 @@ class StateManagementService extends ChangeNotifier {
   void setLocationSubscription(StreamSubscription<Position>? subscription) {
     _locationSubscription?.cancel();
     _locationSubscription = subscription;
-    ServiceLogger.debug('Location subscription updated');
+    debugPrint('Location subscription updated');
   }
 
   /// Start background timers
@@ -325,19 +320,19 @@ class StateManagementService extends ChangeNotifier {
       (_) => _performCleanup(),
     );
 
-    ServiceLogger.info('Background timers started');
+    debugPrint('Background timers started');
   }
 
   /// Check GPS status
   void _checkGpsStatus() {
     // Implementation for GPS status check
-    ServiceLogger.debug('GPS status checked');
+    debugPrint('GPS status checked');
   }
 
   /// Perform cleanup
   void _performCleanup() {
     // Implementation for cleanup
-    ServiceLogger.debug('Cleanup performed');
+    debugPrint('Cleanup performed');
   }
 
   // ==========================================
@@ -366,9 +361,9 @@ class StateManagementService extends ChangeNotifier {
       _selectedLocationType =
           prefs.getString('selected_location_type') ?? 'all';
 
-      ServiceLogger.info('Persisted state loaded');
+      debugPrint('Persisted state loaded');
     } catch (e) {
-      ServiceLogger.error('Failed to load persisted state', error: e);
+      debugPrint('ERROR: Failed to load persisted state: $e');
     }
   }
 
@@ -392,9 +387,9 @@ class StateManagementService extends ChangeNotifier {
           'selected_prayer_category', _selectedPrayerCategory);
       await prefs.setString('selected_location_type', _selectedLocationType);
 
-      ServiceLogger.info('Persisted state saved');
+      debugPrint('Persisted state saved');
     } catch (e) {
-      ServiceLogger.error('Failed to save persisted state', error: e);
+      debugPrint('ERROR: Failed to save persisted state: $e');
     }
   }
 
@@ -410,7 +405,7 @@ class StateManagementService extends ChangeNotifier {
   /// Restore state from saved data
   Future<void> restoreState() async {
     try {
-      ServiceLogger.info('Restoring application state');
+      debugPrint('Restoring application state');
 
       // Load persisted state
       await _loadPersistedState();
@@ -418,15 +413,15 @@ class StateManagementService extends ChangeNotifier {
       // Restore UI state
       notifyListeners();
 
-      ServiceLogger.info('Application state restored');
+      debugPrint('Application state restored');
     } catch (e) {
-      ServiceLogger.error('Failed to restore state', error: e);
+      debugPrint('ERROR: Failed to restore state: $e');
     }
   }
 
   /// Reset state to default
   void resetState() {
-    ServiceLogger.info('Resetting application state');
+    debugPrint('Resetting application state');
 
     // Reset all state to default values
     _isLocationTracking = false;

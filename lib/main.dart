@@ -19,6 +19,8 @@ import 'screens/prayer_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/background_scan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/scan_history_screen.dart';
+import 'screens/alarm_personalization_screen.dart';
 import 'widgets/app_loading.dart';
 
 // Theme Manager
@@ -238,14 +240,10 @@ class DoaMapsApp extends StatelessWidget {
     // Setup navigator key for notifications
     NotificationService.navigatorKey = GlobalKey<NavigatorState>();
 
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => LocationService.instance),
-        ChangeNotifierProvider(create: (_) => NotificationService.instance),
-      ],
-      child: Consumer<ThemeManager>(
-        builder: (context, themeManager, child) {
-          return MaterialApp(
+    // ✅ FIX: Remove duplicate MultiProvider (already provided in main())
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        return MaterialApp(
             navigatorKey: NotificationService.navigatorKey,
             title: 'Doa Geofencing - Tracking Lokasi & Doa Islam',
             theme: themeManager.getThemeData(context),
@@ -363,6 +361,9 @@ class DoaMapsApp extends StatelessWidget {
               '/prayer': (context) => PrayerScreen.fromRoute(context),
               '/profile': (context) => const ProfileScreen(),
               '/settings': (context) => const SettingsScreen(),
+              '/scan_history': (context) => const ScanHistoryScreen(),
+              '/alarm_personalization': (context) =>
+                  const AlarmPersonalizationScreen(),
             },
             debugShowCheckedModeBanner: false,
             // Optimize app startup - prevent splash screen on resume
@@ -373,10 +374,8 @@ class DoaMapsApp extends StatelessWidget {
                 builder: (context) => const OnboardingWrapper(),
                 settings: settings,
               );
-            },
-          );
-        },
-      ),
+            });
+      },
     );
   }
 }

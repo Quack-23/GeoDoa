@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/scan_statistics_service.dart';
 import '../widgets/app_loading.dart';
+import '../widgets/modern_app_bar.dart';
 
 class ScanHistoryScreen extends StatefulWidget {
   const ScanHistoryScreen({super.key});
@@ -37,95 +38,26 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildModernAppBar(context, isDark),
+            ModernAppBar(
+              title: 'Riwayat Scan',
+              subtitle: '${_history.length} lokasi terdeteksi',
+              icon: Icons.history,
+              showBackButton: true,
+            ),
             Expanded(
               child: _isLoading
                   ? const AppLoading(message: 'Memuat riwayat...')
                   : _history.isEmpty
                       ? _buildEmptyState(isDark)
-                      : _buildHistoryList(isDark),
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            await _loadHistory();
+                          },
+                          child: _buildHistoryList(isDark),
+                        ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildModernAppBar(BuildContext context, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [
-                  const Color(0xFF1B5E20),
-                  const Color(0xFF2E7D32).withOpacity(0.8),
-                ]
-              : [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.primary.withOpacity(0.8),
-                ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? const Color(0xFF1B5E20).withOpacity(0.3)
-                : Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.history,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Riwayat Scan',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_history.length} lokasi terdeteksi',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

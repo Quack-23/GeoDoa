@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_service.dart';
 // PersistentStateService removed - using SharedPreferences directly
 import '../models/prayer_model.dart';
 import '../widgets/copy_share_widgets.dart';
 import '../widgets/app_loading.dart';
+import '../widgets/modern_app_bar.dart';
+import '../constants/app_constants.dart';
 
 class PrayerScreen extends StatefulWidget {
   final String? locationType;
@@ -23,28 +26,21 @@ class PrayerScreen extends StatefulWidget {
   }
 }
 
-class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
+class _PrayerScreenState extends State<PrayerScreen>
+    with RestorationMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true; // ✅ Preserve state saat navigasi
+
   List<PrayerModel> _prayers = [];
   String _selectedCategory = 'semua';
   bool _isLoading = true;
   bool _isStateLoaded = false; // Flag to prevent animations during initial load
   final ScrollController _scrollController = ScrollController();
 
-  final List<String> _categories = [
-    'semua',
-    'masjid',
-    'sekolah',
-    'rumah_sakit',
-    'tempat_kerja',
-    'pasar',
-    'restoran',
-    'terminal',
-    'stasiun',
-    'bandara',
-    'rumah',
-    'kantor',
-    'cafe',
-  ];
+  // Categories menggunakan main categories + semua
+  List<String> get _categories {
+    return ['semua', ...AppConstants.allCategories];
+  }
 
   @override
   String get restorationId => 'prayer_screen';
@@ -90,13 +86,12 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
         });
 
         // Restore scroll position only if not from notification
-        if (widget.locationType == null &&
-            state != null &&
-            state['scrollPosition'] != null) {
+        final scrollPosition = prefs.getDouble('prayer_scrollPosition');
+        if (widget.locationType == null && scrollPosition != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_scrollController.hasClients) {
+            if (mounted && _scrollController.hasClients) {
               _scrollController.animateTo(
-                state['scrollPosition'].toDouble(),
+                scrollPosition,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOut,
               );
@@ -129,7 +124,8 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('prayer_selectedCategory', _selectedCategory);
       if (_scrollController.hasClients) {
-        await prefs.setDouble('prayer_scrollPosition', _scrollController.offset);
+        await prefs.setDouble(
+            'prayer_scrollPosition', _scrollController.offset);
       }
       // Note: filters state removed - can be re-implemented if needed
     } catch (e) {
@@ -138,6 +134,7 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
   }
 
   Future<void> _loadPrayers() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -154,11 +151,13 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
         prayers = await DatabaseService.instance.getAllPrayers();
       }
 
+      if (!mounted) return;
       setState(() {
         _prayers = prayers;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -177,104 +176,40 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    super.build(context); // ✅ Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildModernAppBar(context, isDark),
+            ModernAppBar(
+              title: 'Doa & Dzikir',
+              subtitle: widget.locationType != null
+                  ? 'Filter: ${_getCategoryDisplayName(widget.locationType!)}'
+                  : 'Koleksi doa harian Anda',
+              icon: Icons.menu_book,
+              showBackButton: false,
+            ),
             Expanded(
               child: _isStateLoaded
-                  ? Column(
-                      children: [
-                        _buildCategoryFilter(),
-                        Expanded(
-                          child: _isLoading
-                              ? const AppLoading(message: 'Memuat doa...')
-                              : _buildPrayersList(),
-                        ),
-                      ],
+                  ? RefreshIndicator(
+                      onRefresh: () async {
+                        await _loadPrayers();
+                      },
+                      child: Column(
+                        children: [
+                          _buildCategoryFilter(),
+                          Expanded(
+                            child: _isLoading
+                                ? const AppLoading(message: 'Memuat doa...')
+                                : _buildPrayersList(),
+                          ),
+                        ],
+                      ),
                     )
                   : const AppLoading(message: 'Menyiapkan layar doa...'),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Header sederhana selaras dengan tema umum (tanpa back button)
-  Widget _buildModernAppBar(BuildContext context, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [
-                  const Color(0xFF1B5E20),
-                  const Color(0xFF2E7D32).withOpacity(0.8),
-                ]
-              : [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.primary.withOpacity(0.8),
-                ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? const Color(0xFF1B5E20).withOpacity(0.3)
-                : Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.menu_book,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Doa & Dzikir',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.locationType != null
-                      ? 'Filter: ${_getCategoryDisplayName(widget.locationType!)}'
-                      : 'Koleksi doa harian Anda',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -463,36 +398,11 @@ class _PrayerScreenState extends State<PrayerScreen> with RestorationMixin {
   }
 
   String _getCategoryDisplayName(String category) {
-    switch (category) {
-      case 'semua':
-        return 'Semua';
-      case 'masjid':
-        return 'Masjid';
-      case 'sekolah':
-        return 'Sekolah';
-      case 'rumah_sakit':
-        return 'Rumah Sakit';
-      case 'tempat_kerja':
-        return 'Tempat Kerja';
-      case 'pasar':
-        return 'Pasar';
-      case 'restoran':
-        return 'Restoran';
-      case 'terminal':
-        return 'Terminal';
-      case 'stasiun':
-        return 'Stasiun';
-      case 'bandara':
-        return 'Bandara';
-      case 'rumah':
-        return 'Rumah';
-      case 'kantor':
-        return 'Kantor';
-      case 'cafe':
-        return 'Cafe';
-      default:
-        return category;
+    if (category == 'semua') {
+      return 'Semua Kategori';
     }
+    // Category names dari AppConstants sudah readable
+    return category;
   }
 
   Widget _buildPrayersList() {

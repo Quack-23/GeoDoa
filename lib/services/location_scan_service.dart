@@ -1,14 +1,27 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import '../models/location_model.dart';
-import '../constants/app_constants.dart';
-import '../services/loading_service.dart';
 import '../services/offline_service.dart';
+import '../utils/api_retry_strategy.dart';
+import '../utils/spatial_cache.dart';
+import '../utils/rate_limiter.dart';
 
 class LocationScanService {
   static const String _overpassApiUrl =
       'https://overpass-api.de/api/interpreter';
+
+  // Singleton instances untuk optimization
+  static final ApiRetryStrategy _retryStrategy =
+      ApiRetryStrategy(maxRetries: 5);
+  static final SpatialCache _spatialCache = SpatialCache(
+    cacheValidityDays: 7,
+    gridSize: 0.01, // ~1km
+  );
+  static final RateLimiter _rateLimiter = RateLimiter(
+    minInterval: Duration(seconds: 1),
+  );
 
   // Scan lokasi sekitar berdasarkan koordinat dan radius
   static Future<List<LocationModel>> scanNearbyLocations({
@@ -17,23 +30,23 @@ class LocationScanService {
     required double radiusKm,
     List<String> types = const [
       'masjid',
+      'musholla',
       'sekolah',
       'rumah_sakit',
       'tempat_kerja',
+      'kantor',
       'pasar',
       'restoran',
+      'cafe',
       'bandara',
       'terminal',
-      'stasiun'
+      'stasiun',
+      'rumah',
+      'rumah_orang'
     ],
+    bool useCache = true, // Option untuk bypass cache
   }) async {
     try {
-      // Cek koneksi internet
-      if (OfflineService.instance.isOffline) {
-        debugPrint('WARNING: Cannot scan locations: device is offline');
-        throw Exception('Tidak ada koneksi internet');
-      }
-
       // Simple validation
       if (latitude < -90 ||
           latitude > 90 ||
@@ -43,18 +56,60 @@ class LocationScanService {
         throw Exception('Data input tidak valid: koordinat diluar range');
       }
 
-      // Mulai loading
-      LoadingService.instance.startScanLoading();
+      final position = Position(
+        latitude: latitude,
+        longitude: longitude,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+
+      // ✅ STEP 1: Check cache first (jika enabled)
+      if (useCache) {
+        final cachedLocations = await _spatialCache.getLocations(position);
+        if (cachedLocations != null && cachedLocations.isNotEmpty) {
+          debugPrint(
+              '📦 Using cached locations (${cachedLocations.length} found)');
+
+          // Filter by radius
+          final nearbyLocations = cachedLocations.where((loc) {
+            final distance = Geolocator.distanceBetween(
+              latitude,
+              longitude,
+              loc.latitude,
+              loc.longitude,
+            );
+            return distance <= (radiusKm * 1000);
+          }).toList();
+
+          return nearbyLocations;
+        }
+      }
+
+      // ✅ STEP 2: Cache miss or disabled - fetch from API
+      debugPrint('🌐 Fetching fresh data from API');
+
+      // Cek koneksi internet
+      if (OfflineService.instance.isOffline) {
+        debugPrint('WARNING: Cannot scan locations: device is offline');
+        throw Exception('Tidak ada koneksi internet');
+      }
+
+      // Loading ditampilkan di screen masing-masing, bukan global
+      // LoadingService.instance.startScanLoading();
 
       final List<LocationModel> locations = [];
 
       for (int i = 0; i < types.length; i++) {
         final type = types[i];
-        final progress = (i + 1) / types.length;
 
-        LoadingService.instance.updateScanProgress(progress);
-        LoadingService.instance
-            .updateLoadingMessage('scan_locations', 'Memindai $type...');
+        // Loading ditampilkan di screen masing-masing, bukan global
+        // (progress tracking di-handle oleh UI screen langsung)
 
         try {
           final query =
@@ -62,41 +117,30 @@ class LocationScanService {
           final results = await _executeOverpassQuery(query);
           final parsedLocations = _parseOverpassResults(results, type);
 
-          // Validasi setiap lokasi yang ditemukan
-          for (final location in parsedLocations) {
-            final locationData = location.toMap();
-            final locationValidation =
-                InputValidationService.validateLocationData(locationData);
+          // Tambahkan semua lokasi yang valid (sudah di-parse)
+          locations.addAll(parsedLocations);
 
-            if (locationValidation.isValid &&
-                locationValidation.sanitizedData != null) {
-              locations.add(
-                  LocationModel.fromMap(locationValidation.sanitizedData!));
-            } else {
-              ServiceLogger.warning(
-                  'Skipping invalid location: ${location.name}',
-                  data: {
-                    'errors': locationValidation.errors,
-                  });
-            }
-          }
-
-          ServiceLogger.info(
+          debugPrint(
               'Scanned $type: ${parsedLocations.length} locations found');
         } catch (e) {
-          ServiceLogger.error('Failed to scan $type', error: e);
+          debugPrint('ERROR: Failed to scan $type: $e');
           // Continue with other types
         }
       }
 
-      LoadingService.instance.stopScanLoading();
-      ServiceLogger.info(
+      // ✅ STEP 3: Save ke cache untuk next time
+      if (useCache && locations.isNotEmpty) {
+        await _spatialCache.saveLocations(position, locations);
+      }
+
+      // LoadingService.instance.stopScanLoading();
+      debugPrint(
           'Location scan completed: ${locations.length} valid locations found');
 
       return locations;
     } catch (e) {
-      LoadingService.instance.stopScanLoading();
-      ServiceLogger.error('Error scanning nearby locations', error: e);
+      // LoadingService.instance.stopScanLoading();
+      debugPrint('ERROR: Error scanning nearby locations: $e');
       rethrow;
     }
   }
@@ -111,6 +155,9 @@ class LocationScanService {
       case 'masjid':
         amenity = 'place_of_worship';
         break;
+      case 'musholla':
+        amenity = 'place_of_worship';
+        break;
       case 'sekolah':
         amenity = 'school';
         break;
@@ -120,11 +167,17 @@ class LocationScanService {
       case 'tempat_kerja':
         amenity = 'office';
         break;
+      case 'kantor':
+        amenity = 'office';
+        break;
       case 'pasar':
         amenity = 'marketplace';
         break;
       case 'restoran':
         amenity = 'restaurant';
+        break;
+      case 'cafe':
+        amenity = 'cafe';
         break;
       case 'bandara':
         amenity = 'aerodrome';
@@ -134,6 +187,10 @@ class LocationScanService {
         break;
       case 'stasiun':
         amenity = 'station';
+        break;
+      case 'rumah':
+      case 'rumah_orang':
+        amenity = 'residential';
         break;
     }
 
@@ -148,19 +205,129 @@ out center meta;
 ''';
   }
 
-  // Execute Overpass API query
+  // Execute Overpass API query dengan Rate Limiting dan Retry Strategy
   static Future<Map<String, dynamic>> _executeOverpassQuery(
       String query) async {
-    final response = await http.post(
-      Uri.parse(_overpassApiUrl),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {'data': query},
-    );
+    // ✅ STEP 1: Enqueue request dengan rate limiter
+    return await _rateLimiter.enqueue(() async {
+      // ✅ STEP 2: Execute dengan retry strategy
+      return await _retryStrategy.callWithBackoff(() async {
+        final response = await http.post(
+          Uri.parse(_overpassApiUrl),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {'data': query},
+        ).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            throw Exception('Request timeout');
+          },
+        );
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to fetch data: ${response.statusCode}');
+        if (response.statusCode == 200) {
+          return json.decode(response.body);
+        } else if (response.statusCode == 429) {
+          // Rate limit - will trigger retry strategy
+          throw Exception('HTTP 429: Too Many Requests');
+        } else {
+          throw Exception('Failed to fetch data: ${response.statusCode}');
+        }
+      });
+    });
+  }
+
+  // Helper: Map old type to hierarchical structure
+  static Map<String, String> _mapTypeToHierarchy(String oldType) {
+    switch (oldType) {
+      case 'masjid':
+        return {
+          'category': 'Tempat Ibadah',
+          'subCategory': 'Masjid',
+          'realSub': 'masjid',
+        };
+      case 'musholla':
+        return {
+          'category': 'Tempat Ibadah',
+          'subCategory': 'Musholla',
+          'realSub': 'musholla',
+        };
+      case 'sekolah':
+        return {
+          'category': 'Pendidikan',
+          'subCategory': 'Sekolah',
+          'realSub': 'sekolah',
+        };
+      case 'rumah_sakit':
+        return {
+          'category': 'Kesehatan',
+          'subCategory': 'Rumah Sakit',
+          'realSub': 'rumah_sakit',
+        };
+      case 'tempat_kerja':
+        return {
+          'category': 'Pekerjaan',
+          'subCategory': 'Tempat Kerja',
+          'realSub': 'tempat_kerja',
+        };
+      case 'kantor':
+        return {
+          'category': 'Pekerjaan',
+          'subCategory': 'Kantor',
+          'realSub': 'kantor',
+        };
+      case 'pasar':
+        return {
+          'category': 'Makan, Minum & Rekreasi',
+          'subCategory': 'Pasar & Mall',
+          'realSub': 'pasar_tradisional',
+        };
+      case 'restoran':
+        return {
+          'category': 'Makan, Minum & Rekreasi',
+          'subCategory': 'Restoran',
+          'realSub': 'restoran',
+        };
+      case 'cafe':
+        return {
+          'category': 'Makan, Minum & Rekreasi',
+          'subCategory': 'Cafe',
+          'realSub': 'cafe',
+        };
+      case 'bandara':
+        return {
+          'category': 'Transportasi',
+          'subCategory': 'Bandara',
+          'realSub': 'bandara',
+        };
+      case 'terminal':
+        return {
+          'category': 'Transportasi',
+          'subCategory': 'Terminal',
+          'realSub': 'terminal_bus',
+        };
+      case 'stasiun':
+        return {
+          'category': 'Transportasi',
+          'subCategory': 'Stasiun',
+          'realSub': 'stasiun_kereta',
+        };
+      case 'rumah':
+        return {
+          'category': 'Tempat Tinggal',
+          'subCategory': 'Rumah',
+          'realSub': 'rumah',
+        };
+      case 'rumah_orang':
+        return {
+          'category': 'Tempat Tinggal',
+          'subCategory': 'Rumah',
+          'realSub': 'rumah_kerabat',
+        };
+      default:
+        return {
+          'category': 'Umum',
+          'subCategory': 'Lainnya',
+          'realSub': oldType,
+        };
     }
   }
 
@@ -242,9 +409,14 @@ out center meta;
               break;
           }
 
+          // Map to hierarchical structure
+          final hierarchy = _mapTypeToHierarchy(type);
+
           final location = LocationModel(
             name: name,
-            type: type,
+            locationCategory: hierarchy['category']!,
+            locationSubCategory: hierarchy['subCategory']!,
+            realSub: hierarchy['realSub']!,
             latitude: lat,
             longitude: lng,
             radius: radius,
@@ -519,9 +691,15 @@ out center meta;
           // Set radius based on category
           double radius = _getRadiusForCategory(categoryName);
 
+          // Map category to realSub
+          final oldType = _getTypeForCategory(categoryName);
+          final hierarchy = _mapTypeToHierarchy(oldType);
+
           final location = LocationModel(
             name: name,
-            type: _getTypeForCategory(categoryName),
+            locationCategory: categoryName,
+            locationSubCategory: subcategoryName,
+            realSub: hierarchy['realSub']!,
             latitude: lat,
             longitude: lng,
             radius: radius,
@@ -583,5 +761,62 @@ out center meta;
       default:
         return 'umum';
     }
+  }
+
+  // ============================================================================
+  // CACHE MANAGEMENT & STATISTICS
+  // ============================================================================
+
+  /// Clear expired cache entries
+  static void clearExpiredCache() {
+    _spatialCache.clearExpiredCache();
+  }
+
+  /// Clear all cache
+  static void clearAllCache() {
+    _spatialCache.clearAll();
+  }
+
+  /// Get cache statistics
+  static Map<String, dynamic> getCacheStatistics() {
+    return _spatialCache.getStatistics();
+  }
+
+  /// Get nearby cached locations (tanpa API call)
+  static List<LocationModel> getNearbyCachedLocations({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 5,
+  }) {
+    final position = Position(
+      latitude: latitude,
+      longitude: longitude,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+
+    return _spatialCache.getNearbyCachedLocations(position, radiusKm: radiusKm);
+  }
+
+  /// Get rate limiter queue size
+  static int get queueSize => _rateLimiter.queueSize;
+
+  /// Get retry strategy retry count
+  static int get retryCount => _retryStrategy.retryCount;
+
+  /// Reset retry strategy
+  static void resetRetryStrategy() {
+    _retryStrategy.reset();
+  }
+
+  /// Clear rate limiter queue
+  static void clearRateLimiterQueue() {
+    _rateLimiter.clearQueue();
   }
 }

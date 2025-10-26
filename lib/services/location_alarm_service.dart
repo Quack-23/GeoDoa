@@ -104,10 +104,12 @@ class LocationAlarmService {
       // Get home location
       final locations = await DatabaseService.instance.getAllLocations();
       final homeLocation = locations.firstWhere(
-        (loc) => loc.type == 'rumah',
+        (loc) => loc.locationSubCategory == 'Rumah',
         orElse: () => LocationModel(
           name: 'Rumah',
-          type: 'rumah',
+          locationCategory: 'Tempat Tinggal',
+          locationSubCategory: 'Rumah',
+          realSub: 'rumah',
           latitude: 0,
           longitude: 0,
           radius: 50,
@@ -164,10 +166,12 @@ class LocationAlarmService {
       // Get office location
       final locations = await DatabaseService.instance.getAllLocations();
       final officeLocation = locations.firstWhere(
-        (loc) => loc.type == 'kantor',
+        (loc) => loc.locationSubCategory == 'Kantor',
         orElse: () => LocationModel(
           name: 'Kantor',
-          type: 'kantor',
+          locationCategory: 'Pekerjaan',
+          locationSubCategory: 'Kantor',
+          realSub: 'kantor',
           latitude: 0,
           longitude: 0,
           radius: 50,

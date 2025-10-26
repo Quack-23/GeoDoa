@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../services/scan_statistics_service.dart';
 import '../services/notification_service.dart';
+import '../utils/notification_throttler.dart';
 import '../widgets/app_loading.dart';
 import 'alarm_personalization_screen.dart';
-import 'scan_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,29 +13,28 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true; // ✅ Preserve state saat navigasi
+
   final TextEditingController _nameController = TextEditingController();
 
   // Notifikasi Harian
   bool _dailyNotificationEnabled = true;
 
-  // Jam Tenang
+  // Jam Tenang (sinkron dengan NotificationThrottler)
   bool _quietHoursEnabled = false;
-  TimeOfDay _quietStart = const TimeOfDay(hour: 23, minute: 0);
+  TimeOfDay _quietStart = const TimeOfDay(hour: 22, minute: 0); // Default 22:00
   TimeOfDay _quietEnd = const TimeOfDay(hour: 6, minute: 0);
-
-  // Statistik Personal
-  int _totalScans = 0;
-  String _mostVisitedType = 'masjid';
-  int _mostVisitedCount = 0;
-  List<ScanHistoryItem> _recentHistory = [];
 
   // Permission Status
   bool _isExpandedPermissions = false;
-  Map<String, bool> _permissions = {
+  final Map<String, bool> _permissions = {
     'Lokasi': false,
     'Notifikasi': false,
     'Lokasi Background': false,
+    'Aktivitas Fisik': false,
   };
 
   bool _isLoading = true;
@@ -44,13 +42,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadProfile();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // ✅ Auto-refresh permissions saat user kembali dari app settings
+      _checkPermissions();
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -64,20 +72,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final dailyNotificationEnabled =
           NotificationService.instance.notificationsEnabled;
 
-      // Load jam tenang
+      // ✅ Load jam tenang dari NotificationThrottler (sumber tunggal)
       final quietHoursEnabled =
-          prefs.getBool('personal_quiet_hours_enabled') ?? false;
-      final quietStartHour = prefs.getInt('quiet_start_hour') ?? 23;
-      final quietStartMinute = prefs.getInt('quiet_start_minute') ?? 0;
-      final quietEndHour = prefs.getInt('quiet_end_hour') ?? 6;
-      final quietEndMinute = prefs.getInt('quiet_end_minute') ?? 0;
+          await NotificationThrottler.instance.isQuietHoursEnabled();
 
-      // Load statistik
-      final totalScans = await ScanStatisticsService.instance.getTotalScans();
-      final mostVisited =
-          await ScanStatisticsService.instance.getMostVisitedLocation();
-      final recentHistory =
-          await ScanStatisticsService.instance.getScanHistory(limit: 5);
+      // ✅ FIX: Load quiet hours time dari SharedPreferences
+      final quietStartHour = prefs.getInt('quiet_hours_start_hour') ?? 22;
+      final quietStartMinute = prefs.getInt('quiet_hours_start_minute') ?? 0;
+      final quietEndHour = prefs.getInt('quiet_hours_end_hour') ?? 6;
+      final quietEndMinute = prefs.getInt('quiet_hours_end_minute') ?? 0;
 
       // Load permissions
       await _checkPermissions();
@@ -89,10 +92,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _quietStart =
               TimeOfDay(hour: quietStartHour, minute: quietStartMinute);
           _quietEnd = TimeOfDay(hour: quietEndHour, minute: quietEndMinute);
-          _totalScans = totalScans;
-          _mostVisitedType = mostVisited['type'] ?? 'masjid';
-          _mostVisitedCount = mostVisited['count'] ?? 0;
-          _recentHistory = recentHistory;
           _isLoading = false;
         });
       }
@@ -108,12 +107,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final locationStatus = await Permission.location.status;
     final notificationStatus = await Permission.notification.status;
     final locationAlwaysStatus = await Permission.locationAlways.status;
+    final activityRecognitionStatus =
+        await Permission.activityRecognition.status;
 
     if (mounted) {
       setState(() {
         _permissions['Lokasi'] = locationStatus.isGranted;
         _permissions['Notifikasi'] = notificationStatus.isGranted;
         _permissions['Lokasi Background'] = locationAlwaysStatus.isGranted;
+        _permissions['Aktivitas Fisik'] = activityRecognitionStatus.isGranted;
       });
     }
   }
@@ -129,12 +131,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       NotificationService.instance
           .setNotificationsEnabled(_dailyNotificationEnabled);
 
-      // Save jam tenang
-      await prefs.setBool('personal_quiet_hours_enabled', _quietHoursEnabled);
-      await prefs.setInt('quiet_start_hour', _quietStart.hour);
-      await prefs.setInt('quiet_start_minute', _quietStart.minute);
-      await prefs.setInt('quiet_end_hour', _quietEnd.hour);
-      await prefs.setInt('quiet_end_minute', _quietEnd.minute);
+      // ✅ Save jam tenang ke NotificationThrottler (sumber tunggal)
+      await NotificationThrottler.instance
+          .setQuietHoursEnabled(_quietHoursEnabled);
+
+      // ✅ FIX: Save quiet hours time
+      await prefs.setInt('quiet_hours_start_hour', _quietStart.hour);
+      await prefs.setInt('quiet_hours_start_minute', _quietStart.minute);
+      await prefs.setInt('quiet_hours_end_hour', _quietEnd.hour);
+      await prefs.setInt('quiet_hours_end_minute', _quietEnd.minute);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,6 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // ✅ Required for AutomaticKeepAliveClientMixin
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_isLoading) {
@@ -188,40 +194,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-            // Personalisasi Card
-            _buildPersonalizationCard(isDark),
-                  const SizedBox(height: 20),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _loadProfile();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Personalisasi Card
+              _buildPersonalizationCard(isDark),
+              const SizedBox(height: 20),
 
-            // Notifikasi Harian Card
-            _buildDailyNotificationCard(isDark),
-                  const SizedBox(height: 20),
+              // Notifikasi Harian Card
+              _buildDailyNotificationCard(isDark),
+              const SizedBox(height: 20),
 
-            // Jam Tenang Card
-            _buildQuietHoursCard(isDark),
-                  const SizedBox(height: 20),
+              // Jam Tenang Card
+              _buildQuietHoursCard(isDark),
+              const SizedBox(height: 20),
 
-            // Statistik Personal Card
-            _buildStatisticsCard(isDark),
-                  const SizedBox(height: 20),
+              // Atur Alarm Personalisasi Card
+              _buildAlarmPersonalizationCard(isDark),
+              const SizedBox(height: 20),
 
-            // Riwayat Scan Card
-            _buildScanHistoryCard(isDark),
-                  const SizedBox(height: 20),
+              // Izin & Akses Card
+              _buildPermissionsCard(isDark),
 
-            // Atur Alarm Personalisasi Card
-            _buildAlarmPersonalizationCard(isDark),
-                  const SizedBox(height: 20),
-
-            // Izin & Akses Card
-            _buildPermissionsCard(isDark),
-
-            const SizedBox(height: 40),
-          ],
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );
@@ -244,14 +248,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
-      ),
+          ),
         ],
       ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -261,17 +265,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: const Icon(Icons.person, color: Colors.blue, size: 24),
               ),
               const SizedBox(width: 12),
-                Text(
+              Text(
                 'Personalisasi',
                 style: TextStyle(
                   fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
-                      ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
@@ -302,10 +306,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-                  ),
-                ),
-              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -332,8 +336,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            Row(
-              children: [
+          Row(
+            children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -342,9 +346,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: const Icon(Icons.notifications_active,
                     color: Colors.orange, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -373,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontSize: 12,
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
-              children: [
+                          children: [
                             const TextSpan(
                                 text:
                                     'Notifikasi akan tampil ketika Anda menggunakan '),
@@ -388,9 +392,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ],
                         ),
                       ),
-            ),
-          ],
-        ),
+                    ),
+                  ],
+                ),
               ),
               Switch(
                 value: _dailyNotificationEnabled,
@@ -427,11 +431,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -446,11 +450,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(
+                    Text(
                       'Jam Tenang',
-                  style: TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
@@ -497,7 +501,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                  Expanded(
+                Expanded(
                   child: _buildTimeButton(
                     label: 'Selesai',
                     time: _quietEnd,
@@ -512,12 +516,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         await _saveProfile();
                       }
                     },
-                    ),
                   ),
-                ],
+                ),
+              ],
             ),
           ],
-          ],
+        ],
       ),
     );
   }
@@ -555,442 +559,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 4),
-                Text(
+            Text(
               '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.bold,
                 color: isDark ? Colors.white : Colors.black87,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatisticsCard(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child:
-                    const Icon(Icons.bar_chart, color: Colors.green, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Statistik Personal',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  icon: Icons.radar,
-                  label: 'Total Scan',
-                  value: _totalScans.toString(),
-                  color: Colors.blue,
-                  isDark: isDark,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatItem(
-                  icon: Icons.location_on,
-                  label: 'Terbanyak Dikunjungi',
-                  value: _mostVisitedCount > 0
-                      ? _getLocationTypeLabel(_mostVisitedType)
-                      : 'Belum ada lokasi terbaru',
-                  color: Colors.orange,
-                  isDark: isDark,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  icon: Icons.location_history,
-                  label: 'Total Kunjungan',
-                  value: _mostVisitedCount.toString(),
-                  color: Colors.purple,
-                  isDark: isDark,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryItem(
-      ScanHistoryItem item, bool isDark, bool showDivider) {
-    final color = _getHistoryLocationColor(item.locationType);
-
-    return Column(
-          children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-              children: [
-                Container(
-                padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                  _getHistoryLocationIcon(item.locationType),
-                  color: color,
-                  size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                      item.locationName,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                      Text(
-                      _formatHistoryTimestamp(item.timestamp),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? Colors.grey[500] : Colors.grey[600],
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: item.scanSource == 'manual'
-                      ? Colors.blue.withOpacity(0.1)
-                      : Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  item.scanSource == 'manual' ? 'M' : 'B',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: item.scanSource == 'manual'
-                        ? Colors.blue
-                        : Colors.purple,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (showDivider)
-          Divider(
-            height: 1,
-            color: isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.grey.withOpacity(0.2),
-          ),
-      ],
-    );
-  }
-
-  Color _getHistoryLocationColor(String type) {
-    switch (type) {
-      case 'masjid':
-      case 'musholla':
-        return Colors.green;
-      case 'gereja':
-      case 'vihara':
-      case 'pura':
-      case 'klenteng':
-        return Colors.blue;
-      case 'sekolah':
-        return Colors.orange;
-      case 'rumah_sakit':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getHistoryLocationIcon(String type) {
-    switch (type) {
-      case 'masjid':
-      case 'musholla':
-        return Icons.mosque;
-      case 'gereja':
-      case 'vihara':
-      case 'pura':
-      case 'klenteng':
-        return Icons.church;
-      case 'sekolah':
-        return Icons.school;
-      case 'rumah_sakit':
-        return Icons.local_hospital;
-      default:
-        return Icons.location_on;
-    }
-  }
-
-  String _formatHistoryTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-
-    if (difference.inMinutes < 1) {
-      return 'Baru saja';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m yang lalu';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}j yang lalu';
-    } else {
-      return '${difference.inDays}h yang lalu';
-    }
-  }
-
-  String _getLocationTypeLabel(String type) {
-    final labels = {
-      'masjid': 'Masjid',
-      'musholla': 'Musholla',
-      'gereja': 'Gereja',
-      'vihara': 'Vihara',
-      'pura': 'Pura',
-      'klenteng': 'Klenteng',
-    };
-    return labels[type] ?? type;
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    String? subValue,
-    required Color color,
-    required bool isDark,
-  }) {
-    // Check if value is long text (like "Belum ada lokasi terbaru")
-    final isLongText = value.length > 10;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.grey.withOpacity(0.1)
-            : Colors.grey.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-                Text(
-            value,
-            style: TextStyle(
-              fontSize: isLongText ? 13 : 20,
-              fontWeight: isLongText ? FontWeight.w500 : FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          ),
-          if (subValue != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subValue,
-              style: TextStyle(
-                fontSize: 10,
-                color: isDark ? Colors.grey[500] : Colors.grey[500],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScanHistoryCard(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child:
-                    const Icon(Icons.history, color: Colors.purple, size: 24),
-              ),
-              const SizedBox(width: 12),
-                Text(
-                'Riwayat Scan',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          // History content
-          if (_recentHistory.isNotEmpty) ...[
-            ..._recentHistory.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return _buildHistoryItem(
-                  item, isDark, index < _recentHistory.length - 1);
-            }),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.grey.withOpacity(0.05)
-                    : Colors.grey.withOpacity(0.03),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.grey.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  'Belum ada data terbaru',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-              ),
-            ),
-          ],
-            const SizedBox(height: 12),
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ScanHistoryScreen(),
-                ),
-              ).then((_) => _loadProfile());
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.purple.withOpacity(0.1)
-                    : Colors.purple.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.purple.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Selengkapnya',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.purple,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.purple,
-            ),
-          ],
-        ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1008,10 +586,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+        decoration: BoxDecoration(
           color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-        border: Border.all(
+          border: Border.all(
             color: isDark
                 ? Colors.white.withOpacity(0.1)
                 : Colors.grey.withOpacity(0.3),
@@ -1024,9 +602,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               offset: const Offset(0, 3),
             ),
           ],
-      ),
-      child: Row(
-        children: [
+        ),
+        child: Row(
+          children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -1036,30 +614,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Icon(Icons.alarm, color: Colors.teal, size: 24),
             ),
             const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     'Atur Alarm Personalisasi',
-                  style: TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : Colors.black87,
+                    ),
                   ),
-                ),
                   const SizedBox(height: 4),
-                Text(
+                  Text(
                     'Atur alarm lokasi dan status lokasi favorit Anda',
-                  style: TextStyle(
-                    fontSize: 12,
+                    style: TextStyle(
+                      fontSize: 12,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Icon(
+            Icon(
               Icons.arrow_forward_ios,
               size: 18,
               color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -1086,17 +664,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           InkWell(
             onTap: () {
-                setState(() {
+              setState(() {
                 _isExpandedPermissions = !_isExpandedPermissions;
-                });
-              },
+              });
+            },
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -1112,14 +690,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                Text(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                           'Izin & Akses',
-                  style: TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
@@ -1129,10 +707,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Icon(
                     _isExpandedPermissions
@@ -1140,9 +718,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : Icons.keyboard_arrow_down,
                     size: 24,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (_isExpandedPermissions) ...[
@@ -1171,23 +749,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: onToggle,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
+        child: Row(
+          children: [
             Icon(
               isGranted ? Icons.check_circle : Icons.cancel,
               color: isGranted ? Colors.green : Colors.red,
               size: 20,
             ),
             const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
+            Expanded(
+              child: Text(
                 label,
-                      style: TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
+                ),
+              ),
+            ),
             Switch(
               value: isGranted,
               onChanged: (_) => onToggle(),
@@ -1211,6 +789,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         break;
       case 'Lokasi Background':
         permission = Permission.locationAlways;
+        break;
+      case 'Aktivitas Fisik':
+        permission = Permission.activityRecognition;
         break;
       default:
         return;
@@ -1243,8 +824,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (result == true) {
           await openAppSettings();
-          await Future.delayed(const Duration(seconds: 1));
-          await _checkPermissions();
+          // ✅ OPTIMIZED: Refresh permissions when user returns to app
+          // No need for delay, app lifecycle will handle it
         }
       }
     } else {
